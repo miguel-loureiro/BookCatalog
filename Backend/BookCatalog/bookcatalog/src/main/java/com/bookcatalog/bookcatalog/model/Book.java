@@ -17,14 +17,12 @@ public class Book {
         @Column(length = 40)
         private String author;
         private String price;
-        private String coverImage;
 
-        public Book(String title, String author, String price, String coverImage) {
+        public Book(String title, String author, String price) {
 
             this.title = title;
             this.author = author;
             this.price = price;
-            this.coverImage = coverImage;
         }
 
         /**
@@ -65,13 +63,5 @@ public class Book {
 
         public void setPrice(String price) {
             this.price = price;
-        }
-
-        public String getCoverImage() {
-            return coverImage;
-        }
-        
-        public void setCoverImage(String coverImage) {
-            this.coverImage = coverImage;
         }
 }
