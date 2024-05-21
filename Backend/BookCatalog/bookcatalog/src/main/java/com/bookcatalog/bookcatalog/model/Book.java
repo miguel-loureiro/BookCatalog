@@ -1,5 +1,11 @@
 package com.bookcatalog.bookcatalog.model;
 
+import java.io.IOException;
+import java.util.Date;
+
+import com.bookcatalog.bookcatalog.helpers.DateHelper;
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,11 +24,20 @@ public class Book {
         private String author;
         private String price;
 
-        public Book(String title, String author, String price) {
+        @JsonFormat(pattern = "MM/yyyy")
+        private Date publishDate;
+
+        private String coverImage;
+
+
+        public Book(String title, String author, String price, Date publishDate, String coverImage) {
 
             this.title = title;
             this.author = author;
             this.price = price;
+            this.publishDate = publishDate;
+            this.coverImage = coverImage;
+
         }
 
         /**
@@ -63,5 +78,21 @@ public class Book {
 
         public void setPrice(String price) {
             this.price = price;
+        }
+
+        public String getPublishDate() {
+            return DateHelper.serialize(publishDate);
+        }
+
+        public void setPublishDate(String publishDate) throws IOException {
+            this.publishDate = DateHelper.deserialize(publishDate);
+        }
+
+        public String getCoverImage() {
+            return coverImage;
+        }
+
+        public void setCoverImage(String coverImage) {
+            this.coverImage = coverImage;
         }
 }
