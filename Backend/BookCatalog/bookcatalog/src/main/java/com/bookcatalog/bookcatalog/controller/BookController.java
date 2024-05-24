@@ -26,29 +26,29 @@ import org.springframework.web.bind.annotation.PutMapping;
 public class BookController {
 
     private static final String UPLOAD_DIR = System.getProperty("user.dir") + "/uploads"; //uploads folder
-    private static final long MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+    private static final long MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
     @Autowired
     private BookService bookService;
 
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> createBook(@RequestPart("book") Book book, @RequestPart("file") MultipartFile file) throws IOException {
-        if (file != null && !file.isEmpty()) {
-            if (file.getSize() > MAX_FILE_SIZE) {
-                return ResponseEntity.badRequest().body("File size exceeds 4MB size limit");
-            }
+        if (file == null || file.isEmpty()) {
+                return ResponseEntity.badRequest().body("The file is null or empty");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+                return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
+        }
 
-            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
         Path filepath = Paths.get(UPLOAD_DIR, filename);
         Files.createDirectories(filepath.getParent());
         Files.write(filepath, file.getBytes());
 
         book.setCoverImage(filename);
-        }
-        
+
         final Book savedBook = bookService.createBook(book);
         return ResponseEntity.ok(savedBook);
-        
     }
 
     /**
@@ -81,9 +81,12 @@ public class BookController {
             @RequestPart("book") Book bookDetails,
             @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
-        if (file != null && !file.isEmpty()) {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body("The file is empty");
+            }
+
             if (file.getSize() > MAX_FILE_SIZE) {
-                return ResponseEntity.badRequest().body("File size exceeds the 4MB limit.");
+                    return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
             }
 
             String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
@@ -92,11 +95,10 @@ public class BookController {
             Files.write(filepath, file.getBytes());
 
             bookDetails.setCoverImage(filename);
-        }
 
-        final Book updatedBook = bookService.updateBook(id, bookDetails);
-        return ResponseEntity.ok(updatedBook);
-    }
+            final Book updatedBook = bookService.updateBook(id, bookDetails, filename);
+            return ResponseEntity.ok(updatedBook);
+        }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Book> deleteBookById(@PathVariable Integer id) {

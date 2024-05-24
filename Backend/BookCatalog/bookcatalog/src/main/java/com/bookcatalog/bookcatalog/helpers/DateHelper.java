@@ -25,6 +25,5 @@ public class DateHelper {
         } catch (ParseException error) {
             throw new IOException("Error parsing date", error);
         }
-
     }
 }
