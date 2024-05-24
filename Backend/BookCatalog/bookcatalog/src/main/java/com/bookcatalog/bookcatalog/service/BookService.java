@@ -1,5 +1,6 @@
 package com.bookcatalog.bookcatalog.service;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,11 +28,19 @@ public class BookService {
         return bookRepository.findAll();
     }
 
-    public Book updateBook(Integer id, Book newDetails) {
+    public Book updateBook(Integer id, Book newDetails, String filename) throws IOException {
+
         Book book = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("Book not found"));
         book.setTitle(newDetails.getTitle());
         book.setAuthor(newDetails.getAuthor());
         book.setPrice(newDetails.getPrice());
+        book.setPublishDate(newDetails.getPublishDate());
+
+        if(filename != null) {
+
+            book.setCoverImage(filename);
+        }
+        
         return bookRepository.save(book);
     }
 

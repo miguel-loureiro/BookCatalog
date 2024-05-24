@@ -29,7 +29,6 @@ public class Book {
 
         private String coverImage;
 
-
         public Book(String title, String author, String price, Date publishDate, String coverImage) {
 
             this.title = title;
@@ -37,14 +36,12 @@ public class Book {
             this.price = price;
             this.publishDate = publishDate;
             this.coverImage = coverImage;
-
         }
 
         /**
          * constructor for super class
          */
         public Book() {
-
             super();
         }
 
