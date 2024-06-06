@@ -37,7 +37,7 @@ public class BookTest {
         Date publishDate = dateFormat.parse("05/2008");
         String coverImage = "cover.jpg";
 
-        Book book = new Book(title, author, price, publishDate, coverImage);
+        Book book = new Book();
 
         assertEquals(title, book.getTitle());
         assertEquals(author, book.getAuthor());
@@ -48,9 +48,16 @@ public class BookTest {
 
     @Test
     public void testSetAndGetId() {
-        Book book = new Book();
-        book.setId(1);
-        assertEquals(1, book.getId());
+          // Arrange
+          Book book = new Book();
+          Integer expectedId = 1;
+  
+          // Act
+          book.setId(expectedId);
+          Integer actualId = book.getId();
+  
+          // Assert
+          assertEquals(expectedId, actualId);
     }
 
     @Test

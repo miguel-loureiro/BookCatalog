@@ -10,12 +10,14 @@
             "server": "localhost",
             "port": 3306,
             "driver": "MySQL",
-            "name": "books",
-            "database": "books",
+            "name": "bookcatalog",
+            "database": "bookcatalog",
             "username": "root",
-            "password": "baBAlu4$4",
-            "connectionTimeout": 30
+            "password": "baBAlu4$4"
         }
     ],
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "cSpell.words": [
+        "bookcatalog"
+    ]
 }
