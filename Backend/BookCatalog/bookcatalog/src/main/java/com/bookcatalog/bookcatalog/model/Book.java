@@ -1,95 +1,100 @@
 package com.bookcatalog.bookcatalog.model;
-
 import java.io.IOException;
 import java.util.Date;
 
 import com.bookcatalog.bookcatalog.helpers.DateHelper;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
+@Table(name = "books")
 public class Book {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private int id;
-        @Column(length = 50)
-        private String title;
-        @Column(length = 40)
-        private String author;
-        private String price;
+    private String title;
+    private String author;
+    private String price;
 
-        @JsonFormat(pattern = "MM/yyyy")
-        private Date publishDate;
+    @JsonFormat(pattern = "MM/yyyy")
+    private Date publishDate;
 
-        private String coverImage;
+    private String coverImage;
 
-        public Book(String title, String author, String price, Date publishDate, String coverImage) {
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-            this.title = title;
-            this.author = author;
-            this.price = price;
-            this.publishDate = publishDate;
-            this.coverImage = coverImage;
-        }
+    public Book(Integer id, String title, String author, String price, Date publishDate, String coverImage, User user) {
+        this.id = id;
+        this.title = title;
+        this.author = author;
+        this.price = price;
+        this.publishDate = publishDate;
+        this.coverImage = coverImage;
+        this.user = user;
+    }
 
-        /**
-         * constructor for super class
-         */
-        public Book() {
-            super();
-        }
+    public Book() {
 
-        public int getId() {
-            return id;
-        }
+    }
 
-        public void setId(int id) {
-            this.id = id;
-        }
+    // Getters and setters
+    public Integer getId() {
+        return id;
+    }
 
-        public String getTitle() {
-            return title;
-        }
+    public void setId(Integer id) {
+        this.id = id;
+    }
 
-        public void setTitle(String title) {
-            this.title = title;
-        }
+    public String getTitle() {
+        return title;
+    }
 
-        public String getAuthor() {
-            return author;
-        }
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-        public void setAuthor(String author) {
-            this.author = author;
-        }
+    public String getAuthor() {
+        return author;
+    }
 
-        public String getPrice() {
-            return price;
-        }
+    public void setAuthor(String author) {
+        this.author = author;
+    }
 
-        public void setPrice(String price) {
-            this.price = price;
-        }
+    public String getPrice() {
+        return price;
+    }
 
-        public String getPublishDate() {
-            return DateHelper.serialize(publishDate);
-        }
+    public void setPrice(String price) {
+        this.price = price;
+    }
 
-        public void setPublishDate(String publishDate) throws IOException {
-            this.publishDate = DateHelper.deserialize(publishDate);
-        }
+    public String getPublishDate() {
+        return DateHelper.serialize(publishDate);
+    }
 
-        public String getCoverImage() {
-            return coverImage;
-        }
+    public void setPublishDate(String publishDate) throws IOException {
+        this.publishDate = DateHelper.deserialize(publishDate);
+    }
 
-        public void setCoverImage(String coverImage) {
-            this.coverImage = coverImage;
-        }
+    public String getCoverImage() {
+        return coverImage;
+    }
+
+    public void setCoverImage(String coverImage) {
+        this.coverImage = coverImage;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
 }
