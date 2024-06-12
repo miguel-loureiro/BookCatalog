@@ -28,6 +28,18 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Book> books;
 
+    // No-argument constructor
+    public User() {
+    }
+
+    // Constructor with all fields except id and books
+    public User(String username, String email, String password, Role role) {
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.role = role;
+    }
+
     // Getters and setters
     public Integer getId() {
         return id;
