@@ -14,11 +14,14 @@ public class DataLoader {
     @Bean
     public CommandLineRunner loadData(UserRepository repository, PasswordEncoder passwordEncoder) {
         return args -> {
-            repository.save(new User("superadmin", "superadmin@example.com", passwordEncoder.encode("superpassword"), Role.SUPER));
-            repository.save(new User("admin", "admin@example.com", passwordEncoder.encode("adminpassword"), Role.ADMIN));
-            repository.save(new User("reader1", "reader1@example.com", passwordEncoder.encode("readerpassword"), Role.READER));
-            repository.save(new User("reader2", "reader2@example.com", passwordEncoder.encode("readerpassword"), Role.READER));
-            repository.save(new User("guest", "guest@example.com", passwordEncoder.encode("guestpassword"), Role.GUEST));
+            long userCount = repository.count();
+
+            boolean superUserExists = repository.findByRole(Role.SUPER).stream().findAny().isPresent();
+
+            if (userCount == 0 && !superUserExists) {
+                User superUser = new User("superadmin", "superadmin@example.com", passwordEncoder.encode("superpassword"), Role.SUPER);
+                repository.save(superUser);
+            }
         };
     }
 }
