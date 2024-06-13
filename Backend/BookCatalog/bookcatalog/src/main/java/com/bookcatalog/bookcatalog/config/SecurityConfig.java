@@ -32,9 +32,9 @@ public class SecurityConfig {
             .disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/h2-console/**").permitAll()  // Allow access to H2 console
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/super/**").hasRole("SUPER")
-                .requestMatchers("/api/user/**").hasAnyRole("ADMIN", "SUPER", "READER", "GUEST")
+                .requestMatchers("/super/**").hasRole("SUPER")
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/user/**").hasAnyRole("SUPER", "ADMIN", "READER", "GUEST")
                 .anyRequest().authenticated()
             )
             .httpBasic(httpBasic -> {}) // For simplicity, using HTTP Basic authentication
@@ -48,8 +48,8 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
+   /* @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
+    }*/
 }
