@@ -5,6 +5,7 @@ import jakarta.validation.Payload;
 
 import java.lang.annotation.*;
 
+// https://www.baeldung.com/spring-mvc-custom-validator
 @Documented
 @Constraint(validatedBy = UsernameOrEmailValidator.class)
 @Target({ ElementType.TYPE })
