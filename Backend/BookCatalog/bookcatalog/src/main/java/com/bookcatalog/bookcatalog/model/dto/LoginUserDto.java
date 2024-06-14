@@ -16,7 +16,7 @@ import lombok.Setter;
 @Data
 @UsernameOrEmailRequired
 public class LoginUserDto {
-    
+
     @Size(min = 2, max = 100, message = "The length of full name must be between 2 and 100 characters.")
     private String username;
     @Email(message = "The email address is invalid.", flags = {Pattern.Flag.CASE_INSENSITIVE})
