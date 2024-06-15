@@ -6,6 +6,7 @@ import com.bookcatalog.bookcatalog.model.dto.LoginUserDto;
 import com.bookcatalog.bookcatalog.model.dto.RegisterUserDto;
 import com.bookcatalog.bookcatalog.service.AuthenticationService;
 import com.bookcatalog.bookcatalog.service.JwtService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +22,7 @@ public class AuthenticationController {
         this.authenticationService = authenticationService;
     }
 
-    @PostMapping("/signup")
+    @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<User> register(@RequestBody RegisterUserDto registerUserDto) {
 
         User registeredUser = authenticationService.signup(registerUserDto);
