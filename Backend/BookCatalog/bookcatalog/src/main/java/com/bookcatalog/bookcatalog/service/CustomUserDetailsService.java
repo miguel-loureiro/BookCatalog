@@ -1,5 +1,6 @@
 package com.bookcatalog.bookcatalog.service;
 
+import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -22,6 +23,6 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByUsername(usernameOrEmail)
                 .orElseGet(() -> userRepository.findByEmail(usernameOrEmail)
                         .orElseThrow(() -> new UsernameNotFoundException("User not found with username or email: " + usernameOrEmail)));
-        return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), user.getRole().getAuthorities());
+        return new CustomUserDetails(user);
     }
 }
