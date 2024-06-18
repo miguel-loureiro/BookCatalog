@@ -10,7 +10,7 @@ import com.bookcatalog.bookcatalog.repository.UserRepository;
 
 @Configuration
 public class DataLoader {
-
+/*
     @Bean
     public CommandLineRunner loadData(UserRepository repository, PasswordEncoder passwordEncoder) {
         return args -> {
@@ -23,5 +23,5 @@ public class DataLoader {
                 repository.save(superUser);
             }
         };
-    }
+    }*/
 }
