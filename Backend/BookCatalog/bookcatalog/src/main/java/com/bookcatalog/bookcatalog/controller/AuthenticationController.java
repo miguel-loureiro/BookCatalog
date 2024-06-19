@@ -1,6 +1,7 @@
 package com.bookcatalog.bookcatalog.controller;
 
 import com.bookcatalog.bookcatalog.model.LoginResponse;
+import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.LoginUserDto;
 import com.bookcatalog.bookcatalog.model.dto.RegisterUserDto;
@@ -24,6 +25,10 @@ public class AuthenticationController {
 
     @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<User> register(@RequestBody RegisterUserDto registerUserDto) {
+
+        if (registerUserDto.getRole() == Role.SUPER) {
+            throw new IllegalArgumentException("Cannot signup as SUPER");
+        }
 
         User registeredUser = authenticationService.signup(registerUserDto);
         return ResponseEntity.ok(registeredUser);
