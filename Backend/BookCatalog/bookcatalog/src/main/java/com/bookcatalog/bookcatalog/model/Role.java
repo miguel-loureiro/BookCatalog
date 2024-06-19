@@ -11,9 +11,4 @@ public enum Role {
     ADMIN,
     READER,
     GUEST;
-
-        public List<SimpleGrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + this.name()));
-    }
-
 }

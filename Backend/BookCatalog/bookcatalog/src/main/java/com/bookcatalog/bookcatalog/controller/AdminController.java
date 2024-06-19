@@ -27,4 +27,12 @@ public class AdminController {
 
         return ResponseEntity.ok(createdAdmin);
     }
+
+    @PostMapping("/newusers")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<User> createUser(@RequestBody RegisterUserDto registerUserDto) {
+        User createdAdmin = userService.createUser(registerUserDto);
+
+        return ResponseEntity.ok(createdAdmin);
+    }
 }

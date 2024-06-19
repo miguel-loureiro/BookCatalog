@@ -10,6 +10,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.bookcatalog.bookcatalog.helpers.DateHelper;
@@ -31,19 +32,24 @@ public class BookTest {
 
     @Test
     public void testParameterizedConstructor() throws ParseException {
+
         String title = "Effective Java";
         String author = "Joshua Bloch";
         String price = "45.00";
         Date publishDate = dateFormat.parse("05/2008");
         String coverImage = "cover.jpg";
+        User user = new User("abc" ,"abc@example.com", "1234", Role.READER);
 
         Book book = new Book();
 
-        assertEquals(title, book.getTitle());
-        assertEquals(author, book.getAuthor());
-        assertEquals(price, book.getPrice());
-        assertEquals("05/2008", book.getPublishDate());
-        assertEquals(coverImage, book.getCoverImage());
+        book.setTitle(title);
+
+        Assertions.assertEquals(title, book.getTitle());
+        Assertions.assertEquals(author, book.getAuthor());
+        Assertions.assertEquals(price, book.getPrice());
+        Assertions.assertEquals("05/2008", book.getPublishDate());
+        Assertions.assertEquals(coverImage, book.getCoverImage());
+        Assertions.assertEquals(user, book.getUser());
     }
 
     @Test
