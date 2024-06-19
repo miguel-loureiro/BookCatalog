@@ -7,29 +7,13 @@ import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
 
 import java.security.SignatureException;
 
 @ControllerAdvice
-/*public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
-
-    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers,
-                                                                  HttpStatus status, WebRequest request) {
-        Map<String, List<String>> body = new HashMap<>();
-
-        List<String> errors = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(DefaultMessageSourceResolvable::getDefaultMessage)
-                .collect(Collectors.toList());
-
-        body.put("errors", errors);
-
-        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
-    }
-}*/
-
 public class GlobalExceptionHandler {
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleSecurityException(Exception exception) {
         ProblemDetail errorDetail = null;
@@ -70,6 +54,11 @@ public class GlobalExceptionHandler {
         }
 
         return errorDetail;
+    }
+
+    @ExceptionHandler(InvalidUserRoleException.class)
+    public ResponseEntity<?> handleInvalidUserRoleException(InvalidUserRoleException ex, WebRequest request) {
+        return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 }
 
