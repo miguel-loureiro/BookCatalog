@@ -6,8 +6,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+import com.bookcatalog.bookcatalog.model.Role;
+import com.bookcatalog.bookcatalog.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,10 +57,6 @@ public class BookController {
         return ResponseEntity.ok(savedBook);
     }
 
-    /**
-     * @param id
-     * @return
-     */
     @GetMapping("/{id}")
     public ResponseEntity<Book> getBookById(@PathVariable Integer id) {
         return bookService.getBookById(id)
@@ -62,31 +64,37 @@ public class BookController {
         .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    /** Get all the books. localhost:8080/books
-     * @return
-     */
     @GetMapping("/books")
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('GUEST')")
     public List<Book> getAllBooks() {
         return bookService.getAllBooks();
     }
 
-    /**
-     * @param id
-     * @param updatedBookInfo
-     * @return
-     */
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
     public ResponseEntity<?> updateBook(
+
             @PathVariable Integer id,
             @RequestPart("book") Book bookDetails,
             @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body("The file is empty");
-            }
+        Book existingBook = bookService.getBookById(id).orElse(null);
 
+        if (existingBook == null) {
+
+            return ResponseEntity.notFound().build();
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        if (currentUser.getRole() == Role.READER && !existingBook.getUser().getId().equals(currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only update books from your own list");
+        }
+
+        if (file != null && !file.isEmpty()) {
             if (file.getSize() > MAX_FILE_SIZE) {
-                    return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
+                return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
             }
 
             String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
@@ -95,13 +103,30 @@ public class BookController {
             Files.write(filepath, file.getBytes());
 
             bookDetails.setCoverImage(filename);
+        }
 
-            final Book updatedBook = bookService.updateBook(id, bookDetails, filename);
-            return ResponseEntity.ok(updatedBook);
+        bookDetails.setId(existingBook.getId());  // Ensure that the Id of the book remains the same
+        bookDetails.setUser(existingBook.getUser());  // Ensure that the user remains the same
+
+        final Book updatedBook = bookService.updateBook(id, bookDetails, file != null ? bookDetails.getCoverImage() : null);
+        return ResponseEntity.ok(updatedBook);
         }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Book> deleteBookById(@PathVariable Integer id) {
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
+    public ResponseEntity<?> deleteBookById(@PathVariable Integer id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        Book book = bookService.getBookById(id).orElse(null);
+        if (book == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (currentUser.getRole() == Role.READER && !book.getUser().getId().equals(currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only delete your own books");
+        }
+
         bookService.deleteBook(id);
         return ResponseEntity.noContent().build();
     }

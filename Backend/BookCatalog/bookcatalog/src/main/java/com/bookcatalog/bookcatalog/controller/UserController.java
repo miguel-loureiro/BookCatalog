@@ -1,6 +1,8 @@
 package com.bookcatalog.bookcatalog.controller;
 
+import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.model.CustomUserDetails;
+import com.bookcatalog.bookcatalog.service.BookService;
 import com.bookcatalog.bookcatalog.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -108,27 +110,21 @@ public class UserController {
 @RequestMapping("/users")
 @RestController
 public class UserController {
+
     private final UserService userService;
+    private final BookService bookService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, BookService bookService) {
         this.userService = userService;
+        this.bookService = bookService;
     }
 
-    /*
     @GetMapping("/me")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('READER') or hasRole('GUEST')")
     public ResponseEntity<User> authenticatedUser() {
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        User currentUser = (User) authentication.getPrincipal();
-
-        return ResponseEntity.ok(currentUser);
-    }
-     */
-    @GetMapping("/me")
-    public ResponseEntity<User> authenticatedUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        // Ensure the authentication object is not null and contains a principal
         if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             User currentUser = userDetails.getUser();
@@ -139,7 +135,23 @@ public class UserController {
         }
     }
 
+    @GetMapping("/me/books")
+    public ResponseEntity<List<Book>> myBooks() {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            User currentUser = userDetails.getUser();
+            List<Book> books = bookService.getBooksByUserId(currentUser.getId());
+            return ResponseEntity.ok(books);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<User>> allUsers() {
         List <User> users = userService.allUsers();
 
