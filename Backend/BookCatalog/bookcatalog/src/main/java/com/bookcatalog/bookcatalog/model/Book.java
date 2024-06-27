@@ -6,6 +6,7 @@ import com.bookcatalog.bookcatalog.helpers.DateHelper;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -24,8 +25,12 @@ public class Book {
     @Getter
     @Setter
     private String author;
-    @Getter
     @Setter
+    @Getter
+    @Pattern(regexp = "^(97([89]))?\\d{9}(\\d|X)$", message = "Invalid ISBN number. Must be a valid ISBN-10 or ISBN-13 format.")
+    private String isbn;
+    @Setter
+    @Getter
     private String price;
 
     @JsonFormat(pattern = "MM/yyyy")
@@ -38,13 +43,14 @@ public class Book {
     @Setter
     @Getter
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
-    public Book(Integer id, String title, String author, String price, Date publishDate, String coverImage, User user) {
+    public Book(Integer id, String title, String author, String isbn, String price, Date publishDate, String coverImage, User user) {
         this.id = id;
         this.title = title;
         this.author = author;
+        this.isbn = isbn;
         this.price = price;
         this.publishDate = publishDate;
         this.coverImage = coverImage;

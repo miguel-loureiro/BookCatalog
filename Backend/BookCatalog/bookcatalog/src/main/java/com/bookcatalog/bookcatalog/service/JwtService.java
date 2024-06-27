@@ -1,18 +1,23 @@
 package com.bookcatalog.bookcatalog.service;
 
+import com.bookcatalog.bookcatalog.model.User;
+import com.bookcatalog.bookcatalog.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 @Service
@@ -24,6 +29,13 @@ public class JwtService {
     @Value("${security.jwt.expiration}")
     private long jwtExpiration;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    public JwtService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -34,7 +46,18 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+
+        Optional<User> userOptional = userRepository.findByUsername(userDetails.getUsername());
+
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+
+            userRepository.save(user);
+
+            return generateToken(new HashMap<>(), userDetails);
+        } else {
+            throw new UsernameNotFoundException("User not found with username: " + userDetails.getUsername());
+        }
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
@@ -43,6 +66,11 @@ public class JwtService {
 
     public long getExpirationTime() {
         return jwtExpiration;
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
     private String buildToken(
@@ -58,11 +86,6 @@ public class JwtService {
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
-    }
-
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {

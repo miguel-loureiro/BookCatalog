@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,20 +15,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.service.BookService;
 
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-
-
+@RequestMapping("/book")
 @RestController
 public class BookController {
 
@@ -64,14 +58,13 @@ public class BookController {
         .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/books")
-    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('GUEST')")
+    @GetMapping("/all")
     public List<Book> getAllBooks() {
         return bookService.getAllBooks();
     }
 
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
-    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<?> updateBook(
 
             @PathVariable Integer id,
@@ -113,7 +106,7 @@ public class BookController {
         }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<?> deleteBookById(@PathVariable Integer id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
@@ -129,5 +122,22 @@ public class BookController {
 
         bookService.deleteBook(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/mine")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('READER') or hasRole('GUEST')")
+    public ResponseEntity<List<Book>> myBooks() {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
+
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            User currentUser = userDetails.getUser();
+            List<Book> books = bookService.getBooksByUserId(currentUser.getId());
+            return ResponseEntity.ok(books);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 }
