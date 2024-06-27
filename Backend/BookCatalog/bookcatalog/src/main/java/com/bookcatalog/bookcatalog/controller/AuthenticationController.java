@@ -1,5 +1,6 @@
 package com.bookcatalog.bookcatalog.controller;
 
+import com.bookcatalog.bookcatalog.exceptions.InvalidUserRoleException;
 import com.bookcatalog.bookcatalog.model.LoginResponse;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
@@ -7,14 +8,15 @@ import com.bookcatalog.bookcatalog.model.dto.LoginUserDto;
 import com.bookcatalog.bookcatalog.model.dto.RegisterUserDto;
 import com.bookcatalog.bookcatalog.service.AuthenticationService;
 import com.bookcatalog.bookcatalog.service.JwtService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthenticationController {
-
     private final JwtService jwtService;
     private final AuthenticationService authenticationService;
 
@@ -23,29 +25,33 @@ public class AuthenticationController {
         this.authenticationService = authenticationService;
     }
 
-    @PostMapping(value = "/signup/guest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<User> registerGuest(@RequestBody RegisterUserDto registerUserDto) {
-        registerUserDto.setRole(Role.GUEST);
+    @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<User> registerUser(@RequestBody RegisterUserDto registerUserDto) {
+
+        if (registerUserDto.getRole() == Role.SUPER || registerUserDto.getRole() == Role.ADMIN) {
+            throw new InvalidUserRoleException("Cannot sign up with role SUPER or ADMIN");
+        }
+
         User registeredUser = authenticationService.signup(registerUserDto);
         return ResponseEntity.ok(registeredUser);
     }
 
-    @PostMapping(value = "/signup/reader", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<User> registerReader(@RequestBody RegisterUserDto registerUserDto) {
-        registerUserDto.setRole(Role.READER);
-        User registeredUser = authenticationService.signup(registerUserDto);
-        return ResponseEntity.ok(registeredUser);
-    }
+    @PostMapping("/login/guest")
+    public ResponseEntity<String> guestLogin(@RequestBody LoginUserDto loginUserDto) {
 
-    @PostMapping(value = "/signup/admin", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<User> registerAdmin(@RequestBody RegisterUserDto registerUserDto) {
-        registerUserDto.setRole(Role.ADMIN);
-        User registeredUser = authenticationService.signup(registerUserDto);
-        return ResponseEntity.ok(registeredUser);
+        User authenticatedUser = authenticationService.authenticateGuest(loginUserDto);
+
+        if (authenticatedUser == null || authenticatedUser.getRole() != Role.GUEST) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid GUEST credentials");
+        }
+        // No token generation, just return a success message or user details
+        return ResponseEntity.ok("The GUEST user: " + authenticatedUser.getUsername() + " is logged in !");
     }
 
     @PostMapping("/login")
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
     public ResponseEntity<LoginResponse> authenticate(@RequestBody LoginUserDto loginUserDto) {
+
         User authenticatedUser = authenticationService.authenticate(loginUserDto);
 
         String jwtToken = jwtService.generateToken(authenticatedUser);

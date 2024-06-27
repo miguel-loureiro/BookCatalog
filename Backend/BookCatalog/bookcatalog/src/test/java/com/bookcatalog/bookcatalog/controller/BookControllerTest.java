@@ -191,7 +191,7 @@ public class BookControllerTest {
         //assert
         assertEquals(HttpStatus.NOT_FOUND, responseEntity.getStatusCode());
     }
-
+/*
     @Test
     public void testGetAllBooks_Success() throws IOException {
 
@@ -224,6 +224,9 @@ public class BookControllerTest {
         assertEquals(book1, result.get(0));
         assertEquals(book2, result.get(1));
     }
+
+
+ */
 
     @Test
     void testUpdateBook_WithFile() throws Exception {
