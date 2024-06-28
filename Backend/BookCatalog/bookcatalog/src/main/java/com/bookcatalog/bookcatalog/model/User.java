@@ -1,8 +1,6 @@
 package com.bookcatalog.bookcatalog.model;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
@@ -38,7 +36,7 @@ public class User implements UserDetails {
     @Getter
     @Enumerated(EnumType.STRING)
     private Role role;
-
+ /*
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Book> books = new ArrayList<>();
 
@@ -49,6 +47,21 @@ public class User implements UserDetails {
                 book.getIsbn(),
                 book.getPublishDate(),
                 book.getPrice())).toList();
+    }
+*/
+    @ManyToMany
+    @JoinTable(name="user_books", joinColumns = @JoinColumn(name= "user_id"), inverseJoinColumns = @JoinColumn(name= "book_id"))
+    private Set<Book> books = new HashSet<>();
+
+    public List<BookShortDto> getBooks() {
+        return books.stream()
+                .map(book -> new BookShortDto(
+                        book.getTitle(),
+                        book.getAuthor(),
+                        book.getIsbn(),
+                        book.getPublishDate(),
+                        book.getPrice()))
+                .collect(Collectors.toList());
     }
 
     // No-argument constructor

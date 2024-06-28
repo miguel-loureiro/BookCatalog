@@ -1,8 +1,14 @@
 package com.bookcatalog.bookcatalog.model;
 import java.io.IOException;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.bookcatalog.bookcatalog.helpers.DateHelper;
+import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
+import com.bookcatalog.bookcatalog.model.dto.UserShortDto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.*;
@@ -40,13 +46,24 @@ public class Book {
     @Getter
     private String coverImage;
 
-    @Setter
     @Getter
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    @ManyToMany(mappedBy = "books")
+    private Set<User> users = new HashSet<>();
 
-    public Book(Integer id, String title, String author, String isbn, String price, Date publishDate, String coverImage, User user) {
+    public List<UserShortDto> getUsersShort() {
+        return users.stream()
+                .map(user -> new UserShortDto(
+                        user.getUsername(),
+                        user.getEmail(),
+                        user.getRole()))
+                .collect(Collectors.toList());
+    }
+
+    public Book() {
+
+    }
+
+    public Book(Integer id, String title, String author, String isbn, String price, Date publishDate, String coverImage, Set<User> users) {
         this.id = id;
         this.title = title;
         this.author = author;
@@ -54,11 +71,7 @@ public class Book {
         this.price = price;
         this.publishDate = publishDate;
         this.coverImage = coverImage;
-        this.user = user;
-    }
-
-    public Book() {
-
+        this.users = users;
     }
 
     public String getPublishDate() {

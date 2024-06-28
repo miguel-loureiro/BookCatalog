@@ -49,7 +49,6 @@ public class BookTest {
         Assertions.assertEquals(price, book.getPrice());
         Assertions.assertEquals("05/2008", book.getPublishDate());
         Assertions.assertEquals(coverImage, book.getCoverImage());
-        Assertions.assertEquals(user, book.getUser());
     }
 
     @Test
