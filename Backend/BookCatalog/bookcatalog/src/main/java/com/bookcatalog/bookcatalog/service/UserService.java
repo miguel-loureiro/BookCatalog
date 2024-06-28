@@ -319,7 +319,6 @@ public class UserService {
         userDto.setUsername(user.getUsername());
         userDto.setEmail(user.getEmail());
         userDto.setRole(user.getRole());
-        userDto.setBooks(user.getBooks());
 
         return userDto;
     }

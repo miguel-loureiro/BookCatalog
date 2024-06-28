@@ -342,7 +342,7 @@ public class BookControllerTest {
         book1.setCoverImage("testfile1");
 
          //act
-        ResponseEntity<?> responseEntity = bookController.deleteBookById(1);
+        ResponseEntity<?> responseEntity = bookController.deleteBook(1);
 
         //assert
         assertEquals(HttpStatus.NO_CONTENT, responseEntity.getStatusCode());

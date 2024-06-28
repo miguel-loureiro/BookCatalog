@@ -1,12 +1,23 @@
 package com.bookcatalog.bookcatalog.service;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.bookcatalog.bookcatalog.model.Role;
+import com.bookcatalog.bookcatalog.model.User;
+import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
 import com.bookcatalog.bookcatalog.model.dto.BookTitleAndAuthorDto;
+import com.bookcatalog.bookcatalog.model.dto.UserDto;
+import com.bookcatalog.bookcatalog.model.dto.UserShortDto;
+import com.bookcatalog.bookcatalog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import com.bookcatalog.bookcatalog.model.Book;
@@ -17,6 +28,11 @@ public class BookService {
 
     @Autowired
     private BookRepository bookRepository;
+   private UserRepository userRepository;
+
+    public BookService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     public Book createBook(Book book) {
         return bookRepository.save(book);
@@ -26,9 +42,67 @@ public class BookService {
         return bookRepository.findById(id);
     }
 
-    public List<Book> getAllBooks() {
-        return bookRepository.findAll();
+    public ResponseEntity<List<Book>> getAllBooks() {
+
+        UserDto user = getCurrentUser();
+
+        if (user == null || user.getRole() == null ||
+                (user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<Book> books = bookRepository.findAll();
+        return ResponseEntity.ok(books);
     }
+
+    public ResponseEntity<List<BookShortDto>> getAllBooksShort() {
+
+        UserDto user = getCurrentUser();
+
+        if (user == null || user.getRole() == null ||
+                (user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<Book> books = bookRepository.findAll();
+        List<BookShortDto> booksCompactList = books.stream()
+                .map(book -> new BookShortDto(
+                        book.getTitle(),
+                        book.getAuthor(),
+                        book.getIsbn(),
+                        book.getPublishDate(),
+                        book.getPrice()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(booksCompactList);
+    }
+
+    public List<BookShortDto> getBooksByUserId(Integer userId) {
+        Optional<User> userOptional = userRepository.findById(userId);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            return user.getBooks();
+        }
+        return Collections.emptyList();
+    }
+
+    public List<BookShortDto> getBooksByUserIdentifier(String identifier) {
+
+        Optional<User> userOptional = userRepository.findByUsername(identifier);
+
+        if (userOptional.isEmpty()) {
+            userOptional = userRepository.findByEmail(identifier);
+        }
+
+        if (userOptional.isPresent()) {
+
+            User user = userOptional.get();
+            return user.getBooks();
+        }
+        return Collections.emptyList();
+    }
+
+
 
     public List<BookTitleAndAuthorDto> getAllBooksTitlesAndAuthors() {
         List<Book> books = bookRepository.findAll();
@@ -54,7 +128,7 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    public void deleteBook(int i) {
+    public void deleteBookById(int i) {
         Book book = bookRepository.findById(i).orElseThrow(() -> new RuntimeException("Book not found"));
         bookRepository.delete(book);
     }
@@ -64,8 +138,39 @@ public class BookService {
         bookRepository.saveAll(books);
     }
 
-    public List<Book>  getBooksByUserId(Integer id) {
+    private UserDto getCurrentUser() {
+
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        if (principal instanceof UserDetails) {
+            String username = ((UserDetails) principal).getUsername();
+            return userRepository.findByUsername(username).map(this::fromUserToUserDto).orElse(null);
+        }
+        return null;
+    }
+
+    private UserDto fromUserToUserDto(User user) {
+
+        UserDto userDto = new UserDto();
+        userDto.setUsername(user.getUsername());
+        userDto.setEmail(user.getEmail());
+        userDto.setRole(user.getRole());
+
+        return userDto;
+    }
+
+    private UserShortDto fromUserToUserShortDto(User user) {
+
+        UserShortDto userShortDto = new UserShortDto();
+        userShortDto.setUsername(user.getUsername());
+        userShortDto.setEmail(user.getEmail());
+        userShortDto.setRole(user.getRole());
+
+        return userShortDto;
+    }
+
+   /* public List<Book>  getBooksByUserId(Integer id) {
 
         return bookRepository.findByUserId(id);
-    }
+    }*/
 }

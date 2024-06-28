@@ -14,10 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEvent> {
@@ -39,6 +37,7 @@ public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEv
         List<User> users = this.seedUsers();
         List<Book> books = this.createBooks();
         this.assignBooksToUsers(users, books);
+
     }
 
     private void createSuperUser() {
@@ -190,44 +189,20 @@ public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEv
         return (mod == 0) ? 0 : 10 - mod;
     }
 
-    private void assignBooksToUsers(List<User> users, List<Book> allBooks) {
-
+    private void assignBooksToUsers(List<User> users, List<Book> books) {
         Random random = new Random();
 
         for (User user : users) {
-            int numberOfBooks = 1 + random.nextInt(21); // Between 1 and 20 books
-            List<Book> userBooks = new ArrayList<>();
+            int bookCount = random.nextInt(19) + 2; // Number of books to assign (between 2 and 20)
+            Set<Book> assignedBooks = new HashSet<>();
 
-            for (int i = 0; i < numberOfBooks; i++) {
-                Book book;
-                do {
-                    book = allBooks.get(random.nextInt(allBooks.size()));
-                } while (book.getUser() != null && book.getUser().equals(user));
-
-                Date publishDate;
-                try {
-                    publishDate = DateHelper.deserialize(book.getPublishDate());
-                } catch (IOException e) {
-                    publishDate = new Date(); // Fallback in case of parsing error
-                }
-
-                // Assign book to user
-                book.setUser(user);
-
-                Book userBook = new Book(null, book.getTitle(), book.getAuthor(), book.getIsbn(), book.getPrice(), publishDate, book.getCoverImage(), user);
-                userBooks.add(userBook);
+            for (int i = 0; i < bookCount; i++) {
+                Book randomBook = books.get(random.nextInt(books.size()));
+                assignedBooks.add(randomBook);
             }
 
-            user.setBooks(userBooks);
+            user.setBooks(assignedBooks);
             userRepository.save(user);
-        }
-
-        List<Book> booksWithNullUser = bookRepository.findByUserIdIsNull();
-
-        for (Book book : booksWithNullUser) {
-            User randomUser = users.get(random.nextInt(users.size()));
-            book.setUser(randomUser);
-            bookRepository.save(book);
         }
     }
 }
