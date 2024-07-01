@@ -1,5 +1,7 @@
 package com.bookcatalog.bookcatalog.model;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -8,14 +10,12 @@ import java.util.List;
 
 public class CustomUserDetails implements UserDetails {
 
-    private final User user;
+    @Getter
+    @Setter
+    private User user;
 
     public CustomUserDetails(User user) {
         this.user = user;
-    }
-
-    public User getUser() {
-        return user;
     }
 
     @Override

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.bookcatalog.bookcatalog.model.Role;
@@ -77,16 +78,16 @@ public class BookService {
         return ResponseEntity.ok(booksCompactList);
     }
 
-    public List<BookShortDto> getBooksByUserId(Integer userId) {
+    public Set<BookShortDto> getBooksByUserId(Integer userId) {
         Optional<User> userOptional = userRepository.findById(userId);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             return user.getBooks();
         }
-        return Collections.emptyList();
+        return Collections.emptySet();
     }
 
-    public List<BookShortDto> getBooksByUserIdentifier(String identifier) {
+    public Set<BookShortDto> getBooksByUserIdentifier(String identifier) {
 
         Optional<User> userOptional = userRepository.findByUsername(identifier);
 
@@ -99,7 +100,7 @@ public class BookService {
             User user = userOptional.get();
             return user.getBooks();
         }
-        return Collections.emptyList();
+        return Collections.emptySet();
     }
 
 

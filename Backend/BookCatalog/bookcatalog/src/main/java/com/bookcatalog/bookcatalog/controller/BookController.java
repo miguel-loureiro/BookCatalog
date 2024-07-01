@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Set;
 
 import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.Role;
@@ -34,6 +35,7 @@ public class BookController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Book> getBookById(@PathVariable Integer id) {
+
         return bookService.getBookById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -52,8 +54,9 @@ public class BookController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<BookShortDto>> getBooksByUserId(@PathVariable Integer userId) {
-        List<BookShortDto> books = bookService.getBooksByUserId(userId);
+    public ResponseEntity<Set<BookShortDto>> getBooksByUserId(@PathVariable Integer userId) {
+
+        Set<BookShortDto> books = bookService.getBooksByUserId(userId);
         if (books.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -61,19 +64,26 @@ public class BookController {
     }
 
     @GetMapping("/user")
-    public ResponseEntity<List<BookShortDto>> getBooksByUserUsernameOrEmail(@RequestParam String identifier) {
-        List<BookShortDto> books = bookService.getBooksByUserIdentifier(identifier);
+    public ResponseEntity<Set<BookShortDto>> getBooksByUserUsernameOrEmail(@RequestParam String identifier) {
+
+        Set<BookShortDto> books = bookService.getBooksByUserIdentifier(identifier);
         if (books.isEmpty()) {
+
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(books);
     }
 
     @PostMapping(consumes = {"multipart/form-data"})
-    public ResponseEntity<?> createBook(@RequestPart("book") Book book, @RequestPart("file") MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) {
-                return ResponseEntity.badRequest().body("The file is null or empty");
+    public ResponseEntity<?> createBook(@RequestPart("book") Book book, @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to create book. Only SUPER or ADMIN is allowed.");
         }
+
         if (file.getSize() > MAX_FILE_SIZE) {
                 return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
         }
@@ -89,16 +99,9 @@ public class BookController {
         return ResponseEntity.ok(savedBook);
     }
 
-
-
-
-
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<?> updateBook(
-
-            @PathVariable Integer id,
-            @RequestPart("book") Book bookDetails,
+    public ResponseEntity<?> updateBook(@PathVariable Integer id, @RequestPart("book") Book bookDetails,
             @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
         Book existingBook = bookService.getBookById(id).orElse(null);
@@ -111,11 +114,10 @@ public class BookController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
 
-        /*
-        if (currentUser.getRole() == Role.READER && !existingBook.getUser().getId().equals(currentUser.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only update books from your own list");
+        if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to update this book. Only SUPER or ADMIN is allowed.");
         }
-        */
+
         if (file != null && !file.isEmpty()) {
             if (file.getSize() > MAX_FILE_SIZE) {
                 return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
@@ -130,51 +132,28 @@ public class BookController {
         }
 
         bookDetails.setId(existingBook.getId());  // Ensure that the Id of the book remains the same
-       // bookDetails.setUser(existingBook.getUser());  // Ensure that the user remains the same
 
         final Book updatedBook = bookService.updateBook(id, bookDetails, file != null ? bookDetails.getCoverImage() : null);
         return ResponseEntity.ok(updatedBook);
         }
 
-
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<?> deleteBook(@PathVariable Integer id) {
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
+
+        if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to update this book. Only SUPER or ADMIN is allowed.");
+        }
 
         Book book = bookService.getBookById(id).orElse(null);
         if (book == null) {
             return ResponseEntity.notFound().build();
         }
-    /*
-        if (currentUser.getRole() == Role.READER && !book.getUser().getId().equals(currentUser.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only delete your own books");
-        }
-*/
+
         bookService.deleteBookById(id);
         return ResponseEntity.noContent().build();
     }
-
-
-
-    /*
-    @GetMapping("/mine")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('READER') or hasRole('GUEST')")
-    public ResponseEntity<List<Book>> myBooks() {
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
-
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-            User currentUser = userDetails.getUser();
-            List<Book> books = bookService.getBooksByUserId(currentUser.getId());
-            return ResponseEntity.ok(books);
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-    }
-
-     */
 }
