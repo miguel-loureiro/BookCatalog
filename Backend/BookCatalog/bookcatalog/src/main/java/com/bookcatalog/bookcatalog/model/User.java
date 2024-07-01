@@ -36,24 +36,12 @@ public class User implements UserDetails {
     @Getter
     @Enumerated(EnumType.STRING)
     private Role role;
- /*
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Book> books = new ArrayList<>();
 
-    public List<BookShortDto> getBooks() {
-
-        return books.stream().map(book -> new BookShortDto(book.getTitle(),
-                book.getAuthor(),
-                book.getIsbn(),
-                book.getPublishDate(),
-                book.getPrice())).toList();
-    }
-*/
     @ManyToMany
     @JoinTable(name="user_books", joinColumns = @JoinColumn(name= "user_id"), inverseJoinColumns = @JoinColumn(name= "book_id"))
     private Set<Book> books = new HashSet<>();
 
-    public List<BookShortDto> getBooks() {
+    public Set<BookShortDto> getBooks() {
         return books.stream()
                 .map(book -> new BookShortDto(
                         book.getTitle(),
@@ -61,7 +49,7 @@ public class User implements UserDetails {
                         book.getIsbn(),
                         book.getPublishDate(),
                         book.getPrice()))
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
     }
 
     // No-argument constructor

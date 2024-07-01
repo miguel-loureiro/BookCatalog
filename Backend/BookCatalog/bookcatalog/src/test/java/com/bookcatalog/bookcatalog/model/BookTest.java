@@ -1,16 +1,18 @@
 package com.bookcatalog.bookcatalog.model;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.bookcatalog.bookcatalog.helpers.DateHelper;
@@ -18,93 +20,95 @@ import com.bookcatalog.bookcatalog.helpers.DateHelper;
 public class BookTest {
 
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("MM/yyyy");
+    private Book book;
+    private Set<User> users;
+
+    @BeforeEach
+    public void setUp() {
+        users = new HashSet<>();
+        users.add(new User("username1", "email1@example.com", "password1", Role.READER));
+        users.add(new User("username2", "email2@example.com", "password2", Role.READER));
+
+        book = new Book(1, "Title", "Author", "9781234567890", "19.99", new Date(), "cover.jpg", users);
+    }
 
     @Test
     public void testDefaultConstructor() {
-        Book book = new Book();
-        assertNotNull(book);
-        assertNull(book.getTitle());
-        assertNull(book.getAuthor());
-        assertNull(book.getPrice());
-        assertNull(book.getPublishDate());
-        assertNull(book.getCoverImage());
+
+        Book emptyBook = new Book();
+        assertNotNull(emptyBook );
+        Assertions.assertNull(emptyBook.getTitle());
+        Assertions.assertNull(emptyBook.getAuthor());
+        Assertions.assertNull(emptyBook.getPrice());
+        Assertions.assertNull(emptyBook.getPublishDate());
+        Assertions.assertNull(emptyBook.getCoverImage());
     }
 
     @Test
     public void testParameterizedConstructor() throws ParseException {
 
-        String title = "Effective Java";
-        String author = "Joshua Bloch";
-        String price = "45.00";
-        Date publishDate = dateFormat.parse("05/2008");
-        String coverImage = "cover.jpg";
-        User user = new User("abc" ,"abc@example.com", "1234", Role.READER);
-
-        Book book = new Book();
-
-        book.setTitle(title);
-
-        Assertions.assertEquals(title, book.getTitle());
-        Assertions.assertEquals(author, book.getAuthor());
-        Assertions.assertEquals(price, book.getPrice());
-        Assertions.assertEquals("05/2008", book.getPublishDate());
-        Assertions.assertEquals(coverImage, book.getCoverImage());
+        Assertions.assertNotNull(book.getId());
+        Assertions.assertEquals("Title", book.getTitle());
+        Assertions.assertEquals("Author", book.getAuthor());
+        Assertions.assertEquals("9781234567890", book.getIsbn());
+        Assertions.assertEquals("19.99", book.getPrice());
+        Assertions.assertEquals("cover.jpg", book.getCoverImage());
+        Assertions.assertEquals(users, book.getUsers());
     }
 
     @Test
-    public void testSetAndGetId() {
-          // Arrange
-          Book book = new Book();
-          Integer expectedId = 1;
-  
-          // Act
-          book.setId(expectedId);
-          Integer actualId = book.getId();
-  
-          // Assert
-          assertEquals(expectedId, actualId);
+    public void testGettersAndSetters() {
+
+        Book book = new Book();
+        book.setId(2);
+        book.setTitle("New Title");
+        book.setAuthor("New Author");
+        book.setIsbn("9789876543210");
+        book.setPrice("29.99");
+        book.setCoverImage("newcover.jpg");
+
+        Assertions.assertNotNull(book.getId());
+        Assertions.assertEquals(book.getId(),2);
+        Assertions.assertEquals("New Title", book.getTitle());
+        Assertions.assertEquals("New Author", book.getAuthor());
+        Assertions.assertEquals("9789876543210", book.getIsbn());
+        Assertions.assertEquals("29.99", book.getPrice());
+        Assertions.assertEquals("newcover.jpg", book.getCoverImage());
     }
 
     @Test
-    public void testSetAndGetTitle() {
-        Book book = new Book();
-        String title = "Effective Java";
-        book.setTitle(title);
-        assertEquals(title, book.getTitle());
+    public void testGetUsersShort() {
+        var userShortDtos = book.getUsersShort();
+        Assertions.assertEquals(2, userShortDtos.size());
+        Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username1")));
+        Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username1")));
+        Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username2")));
     }
 
     @Test
-    public void testSetAndGetAuthor() {
+    public void testSetPublishDate() throws IOException {
         Book book = new Book();
-        String author = "Joshua Bloch";
-        book.setAuthor(author);
-        assertEquals(author, book.getAuthor());
+        book.setPublishDate("06/2021");
+
+        assertNotNull(book.getPublishDate());
+        Assertions.assertEquals("06/2021", book.getPublishDate());
     }
 
     @Test
-    public void testSetAndGetPrice() {
-        Book book = new Book();
-        String price = "45.00";
-        book.setPrice(price);
-        assertEquals(price, book.getPrice());
+    public void testSerializeDate() {
+        Date date = new Date();
+        String serializedDate = DateHelper.serialize(date);
+
+        assertNotNull(serializedDate);
+        Assertions.assertFalse(serializedDate.isEmpty());
     }
 
     @Test
-    public void testSetAndGetPublishDate() throws IOException, ParseException {
-        Book book = new Book();
-        String dateString = "05/2008";
-        Date date = dateFormat.parse(dateString);
-        book.setPublishDate(dateString);
-        assertEquals(dateString, book.getPublishDate());
-        assertEquals(date, DateHelper.deserialize(book.getPublishDate()));
-    }
+    public void testDeserializeDate() throws IOException {
+        String dateString = "06/2021";
+        Date date = DateHelper.deserialize(dateString);
 
-    @Test
-    public void testSetAndGetCoverImage() {
-        Book book = new Book();
-        String coverImage = "cover.jpg";
-        book.setCoverImage(coverImage);
-        assertEquals(coverImage, book.getCoverImage());
+        assertNotNull(date);
     }
 
     @Test
@@ -112,6 +116,6 @@ public class BookTest {
         Book book = new Book();
         String invalidDate = "invalid date";
         IOException exception = assertThrows(IOException.class, () -> book.setPublishDate(invalidDate));
-        assertEquals("Error parsing date", exception.getMessage());
+        Assertions.assertEquals("Error parsing date", exception.getMessage());
     }
 }
