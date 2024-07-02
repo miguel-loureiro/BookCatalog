@@ -1,14 +1,17 @@
 package com.bookcatalog.bookcatalog.model.dto;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter
-@Setter
+@NoArgsConstructor
 public class BookTitleAndAuthorDto {
 
-    // Getters and setters
+    @Getter
+    @Setter
     private String title;
+    @Getter
+    @Setter
     private String author;
 
     public BookTitleAndAuthorDto(String title, String author) {

@@ -28,4 +28,7 @@ public class BookShortDto {
         this.publishDate = publishDate;
         this.price = price;
     }
+
+    public BookShortDto() {
+    }
 }
