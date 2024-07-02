@@ -20,6 +20,4 @@ public class UserShortDto {
         this.email = email;
         this.role = role;
     }
-
-
 }

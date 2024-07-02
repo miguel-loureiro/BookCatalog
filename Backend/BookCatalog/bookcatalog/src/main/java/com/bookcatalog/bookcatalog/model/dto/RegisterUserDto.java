@@ -15,7 +15,6 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@Data
 public class RegisterUserDto {
 
     @NotEmpty(message = "Username is required")
