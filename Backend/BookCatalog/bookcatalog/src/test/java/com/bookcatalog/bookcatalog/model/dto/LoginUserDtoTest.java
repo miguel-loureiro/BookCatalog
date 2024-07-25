@@ -19,6 +19,7 @@ class LoginUserDtoTest {
 
     @BeforeEach
     public void setUp() {
+
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         validator = factory.getValidator();
     }
@@ -89,6 +90,7 @@ class LoginUserDtoTest {
 
     @Test
     public void testPasswordNotEmptyValidation() {
+
         LoginUserDto loginUserDto = new LoginUserDto();
         loginUserDto.setPassword("");
 
@@ -97,15 +99,84 @@ class LoginUserDtoTest {
     }
 
     @Test
-    public void testPasswordPatternValidation() {
-        LoginUserDto loginUserDto = new LoginUserDto();
-        loginUserDto.setPassword("password");
+    public void testPasswordValid() {
+        LoginUserDto dto = new LoginUserDto("user", "email@example.com", "Password1@");
 
-        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(loginUserDto);
-        assertFalse(violations.isEmpty());
+        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(dto);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    public void testPasswordMissingSpecialCharacter() {
+        LoginUserDto dto = new LoginUserDto("user", "email@example.com", "Password1");
+
+        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(dto);
+        assertEquals(1, violations.size());
 
         ConstraintViolation<LoginUserDto> violation = violations.iterator().next();
         assertEquals("The given password does not match the rules", violation.getMessage());
+        assertEquals("password", violation.getPropertyPath().toString());
+    }
+
+    @Test
+    public void testPasswordMissingUppercaseLetter() {
+        LoginUserDto dto = new LoginUserDto("user", "email@example.com", "password1@");
+
+        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(dto);
+        assertEquals(1, violations.size());
+
+        ConstraintViolation<LoginUserDto> violation = violations.iterator().next();
+        assertEquals("The given password does not match the rules", violation.getMessage());
+        assertEquals("password", violation.getPropertyPath().toString());
+    }
+
+    @Test
+    public void testPasswordTooShort() {
+        LoginUserDto dto = new LoginUserDto("user", "email@example.com", "P1@a");
+
+        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(dto);
+        assertEquals(1, violations.size());
+
+        ConstraintViolation<LoginUserDto> violation = violations.iterator().next();
+        assertEquals("The given password does not match the rules", violation.getMessage());
+        assertEquals("password", violation.getPropertyPath().toString());
+    }
+
+    @Test
+    public void testPasswordTooLong() {
+        LoginUserDto dto = new LoginUserDto("user", "email@example.com", "Password1@Password1@Password1@Password1@");
+
+        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(dto);
+        assertEquals(1, violations.size());
+
+        ConstraintViolation<LoginUserDto> violation = violations.iterator().next();
+        assertEquals("The given password does not match the rules", violation.getMessage());
+        assertEquals("password", violation.getPropertyPath().toString());
+    }
+
+    @Test
+    public void testPasswordMissingDigit() {
+        LoginUserDto dto = new LoginUserDto("user", "email@example.com", "Password@");
+
+        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(dto);
+        assertEquals(1, violations.size());
+
+        ConstraintViolation<LoginUserDto> violation = violations.iterator().next();
+        assertEquals("The given password does not match the rules", violation.getMessage());
+        assertEquals("password", violation.getPropertyPath().toString());
+    }
+
+    @Test
+    public void testPasswordMissingLowercaseLetter() {
+
+        LoginUserDto dto = new LoginUserDto("user", "email@example.com", "PASSWORD1@");
+
+        Set<ConstraintViolation<LoginUserDto>> violations = validator.validate(dto);
+        assertEquals(1, violations.size());
+
+        ConstraintViolation<LoginUserDto> violation = violations.iterator().next();
+        assertEquals("The given password does not match the rules", violation.getMessage());
+        assertEquals("password", violation.getPropertyPath().toString());
     }
 
     @Test

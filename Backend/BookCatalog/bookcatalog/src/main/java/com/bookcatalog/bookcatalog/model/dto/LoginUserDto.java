@@ -26,7 +26,7 @@ public class LoginUserDto {
     @Getter
     @Setter
     @NotEmpty(message = "Password is required")
-    @Pattern(regexp = "(?=.*[a-z])(?=.*d)(?=.*[@#$%])(?=.*[A-Z]).{6,16}", flags = {Pattern.Flag.CASE_INSENSITIVE}, message = "The given password does not match the rules")
+    @Pattern(regexp = "(?=.*[a-z])(?=.*\\d)(?=.*[@#$%])(?=.*[A-Z]).{6,16}", message = "The given password does not match the rules")
     private String password;
 
     public LoginUserDto(String username, String email, String password) {
