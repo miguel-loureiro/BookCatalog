@@ -10,11 +10,13 @@ public class UsernameOrEmailValidator implements ConstraintValidator<UsernameOrE
 
     @Override
     public void initialize(UsernameOrEmailRequired constraintAnnotation) {
+
         ConstraintValidator.super.initialize(constraintAnnotation);
     }
 
     @Override
     public boolean isValid(LoginUserDto loginUserDto, ConstraintValidatorContext constraintValidatorContext) {
+
         return loginUserDto.getUsername() != null && !loginUserDto.getUsername().isEmpty() ||
                 loginUserDto.getEmail() != null && !loginUserDto.getEmail().isEmpty();
     }

@@ -18,10 +18,8 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleSecurityException(Exception exception) {
         ProblemDetail errorDetail = null;
 
-        // TODO send this stack trace to an observability tool
-        exception.printStackTrace();
-
         if (exception instanceof BadCredentialsException) {
+
             errorDetail = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(401), exception.getMessage());
             errorDetail.setProperty("description", "The username or password is incorrect");
 
@@ -29,11 +27,13 @@ public class GlobalExceptionHandler {
         }
 
         if (exception instanceof AccountStatusException) {
+
             errorDetail = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(403), exception.getMessage());
             errorDetail.setProperty("description", "The account is locked");
         }
 
         if (exception instanceof AccessDeniedException) {
+
             errorDetail = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(403), exception.getMessage());
             errorDetail.setProperty("description", "You are not authorized to access this resource");
         }
@@ -44,6 +44,7 @@ public class GlobalExceptionHandler {
         }
 
         if (exception instanceof ExpiredJwtException) {
+
             errorDetail = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(403), exception.getMessage());
             errorDetail.setProperty("description", "The JWT token has expired");
         }
@@ -58,6 +59,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidUserRoleException.class)
     public ResponseEntity<?> handleInvalidUserRoleException(InvalidUserRoleException ex, WebRequest request) {
+
         return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 }

@@ -7,11 +7,13 @@ import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.InjectMocks;
 import org.mockito.*;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -61,6 +63,31 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void doFilterInternal_NullRequest_ShouldThrowNullPointerException() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        Executable executable = () -> jwtAuthenticationFilter.doFilterInternal(null, response, filterChain);
+        assertThrows(NullPointerException.class, executable);
+    }
+
+    @Test
+    void doFilterInternal_NullResponse_ShouldThrowNullPointerException() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        Executable executable = () -> jwtAuthenticationFilter.doFilterInternal(request, null, filterChain);
+        assertThrows(NullPointerException.class, executable);
+    }
+
+    @Test
+    void doFilterInternal_NullFilterChain_ShouldThrowNullPointerException() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        Executable executable = () -> jwtAuthenticationFilter.doFilterInternal(request, response, null);
+        assertThrows(NullPointerException.class, executable);
+    }
+
+    @Test
     void doFilterInternal_NullAuthHeader_shouldDoNothing() throws ServletException, IOException {
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
         verify(filterChain, times(1)).doFilter(request, response);
@@ -78,6 +105,113 @@ class JwtAuthenticationFilterTest {
         // Verify that the filter chain continues and no authentication is set
         verify(filterChain, times(1)).doFilter(request, response);
         assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
+    void doFilterInternal_UserEmailNull() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer validJwtToken");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.extractUsername("validJwtToken")).thenReturn(null);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+
+    @Test
+    void doFilterInternal_ValidJwt_InvalidToken() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer validJwtToken");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.extractUsername("validJwtToken")).thenReturn("user@example.com");
+        when(customUserDetailsService.loadUserByUsername("user@example.com")).thenReturn(userDetails);
+        when(jwtService.isTokenValid("validJwtToken", userDetails)).thenReturn(false);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
+    public void testDoFilterInternal_ValidAuthHeader_UserEmailNull() throws ServletException, IOException {
+        request.addHeader("Authorization", "Bearer validJwt");
+
+        when(jwtService.extractUsername("validJwt")).thenReturn(null);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
+    void doFilterInternal_AuthenticationNotNull() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer validJwtToken");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        Authentication existingAuth = mock(Authentication.class);
+        SecurityContextHolder.getContext().setAuthentication(existingAuth);
+
+        when(jwtService.extractUsername("validJwtToken")).thenReturn("user@example.com");
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertEquals(existingAuth, SecurityContextHolder.getContext().getAuthentication());
+    }
+
+
+    @Test
+    public void testDoFilterInternal_ValidAuthHeader_ValidToken_AuthenticationNull() throws ServletException, IOException {
+        request.addHeader("Authorization", "Bearer validJwt");
+
+        when(jwtService.extractUsername("validJwt")).thenReturn("user@example.com");
+        UserDetails userDetails = mock(UserDetails.class);
+        when(customUserDetailsService.loadUserByUsername("user@example.com")).thenReturn(userDetails);
+        when(jwtService.isTokenValid("validJwt", userDetails)).thenReturn(true);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+/*
+    @Test
+    void doFilterInternal_ValidJwt_UserEmailIsNull() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer valid.jwt.token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.extractUsername("valid.jwt.token")).thenReturn(null);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtService, times(1)).extractUsername("valid.jwt.token");
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+*/
+    @Test
+    public void testDoFilterInternal_ValidAuthHeader_ValidToken_ValidUserEmail_AuthenticationNull() throws ServletException, IOException {
+        request.addHeader("Authorization", "Bearer validJwt");
+
+        when(jwtService.extractUsername("validJwt")).thenReturn("user@example.com");
+        UserDetails userDetails = mock(UserDetails.class);
+        when(customUserDetailsService.loadUserByUsername("user@example.com")).thenReturn(userDetails);
+        when(jwtService.isTokenValid("validJwt", userDetails)).thenReturn(true);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     @Test
@@ -113,5 +247,21 @@ class JwtAuthenticationFilterTest {
         verify(handlerExceptionResolver, times(1)).resolveException(any(), any(), any(), any());
         verify(filterChain, times(0)).doFilter(request, response);
         assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
+    void doFilterInternal_UserEmailNotNull_AuthenticationNotNull() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer validJwtToken");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.extractUsername("validJwtToken")).thenReturn("user@example.com");
+
+        Authentication existingAuthentication = new UsernamePasswordAuthenticationToken("user", "password");
+        SecurityContextHolder.getContext().setAuthentication(existingAuthentication);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
     }
 }

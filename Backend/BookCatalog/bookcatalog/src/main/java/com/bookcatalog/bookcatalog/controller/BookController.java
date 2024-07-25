@@ -84,16 +84,18 @@ public class BookController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to create book. Only SUPER or ADMIN is allowed.");
         }
 
-        if (file.getSize() > MAX_FILE_SIZE) {
+        if(file != null) {
+            if (file.getSize() > MAX_FILE_SIZE) {
                 return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
+            }
+
+            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            Path filepath = Paths.get(UPLOAD_DIR, filename);
+            Files.createDirectories(filepath.getParent());
+            Files.write(filepath, file.getBytes());
+
+            book.setCoverImage(filename);
         }
-
-        String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        Path filepath = Paths.get(UPLOAD_DIR, filename);
-        Files.createDirectories(filepath.getParent());
-        Files.write(filepath, file.getBytes());
-
-        book.setCoverImage(filename);
 
         final Book savedBook = bookService.createBook(book);
         return ResponseEntity.ok(savedBook);
@@ -119,16 +121,13 @@ public class BookController {
         }
 
         if (file != null && !file.isEmpty()) {
-            if (file.getSize() > MAX_FILE_SIZE) {
-                return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
+
+            ResponseEntity<?> fileResponse = processFile(file, bookDetails);
+
+            if (fileResponse != null) {
+
+                return fileResponse;
             }
-
-            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filepath = Paths.get(UPLOAD_DIR, filename);
-            Files.createDirectories(filepath.getParent());
-            Files.write(filepath, file.getBytes());
-
-            bookDetails.setCoverImage(filename);
         }
 
         bookDetails.setId(existingBook.getId());  // Ensure that the Id of the book remains the same
@@ -155,5 +154,20 @@ public class BookController {
 
         bookService.deleteBookById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private ResponseEntity<?> processFile(MultipartFile file, Book bookDetails) throws IOException {
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
+        }
+
+        String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        Path filepath = Paths.get(UPLOAD_DIR, filename);
+        Files.createDirectories(filepath.getParent());
+        Files.write(filepath, file.getBytes());
+
+        bookDetails.setCoverImage(filename);
+        return null;
     }
 }

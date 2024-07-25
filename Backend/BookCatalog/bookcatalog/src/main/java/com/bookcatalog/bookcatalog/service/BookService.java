@@ -29,13 +29,20 @@ public class BookService {
 
     @Autowired
     private BookRepository bookRepository;
-   private UserRepository userRepository;
+    private UserRepository userRepository;
 
-    public BookService(UserRepository userRepository) {
+    public BookService(UserRepository userRepository, BookRepository bookRepository) {
+
         this.userRepository = userRepository;
+        this.bookRepository = bookRepository;
     }
 
     public Book createBook(Book book) {
+
+        if (bookRepository == null) {
+
+            throw new IllegalStateException("BookRepository is not initialized");
+        }
         return bookRepository.save(book);
     }
 
@@ -66,6 +73,12 @@ public class BookService {
         }
 
         List<Book> books = bookRepository.findAll();
+
+        if (books == null) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
         List<BookShortDto> booksCompactList = books.stream()
                 .map(book -> new BookShortDto(
                         book.getTitle(),
@@ -75,16 +88,14 @@ public class BookService {
                         book.getPrice()))
                 .collect(Collectors.toList());
 
+
         return ResponseEntity.ok(booksCompactList);
     }
 
     public Set<BookShortDto> getBooksByUserId(Integer userId) {
+
         Optional<User> userOptional = userRepository.findById(userId);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            return user.getBooks();
-        }
-        return Collections.emptySet();
+        return userOptional.map(User::getBooks).orElse(Collections.emptySet());
     }
 
     public Set<BookShortDto> getBooksByUserIdentifier(String identifier) {
@@ -95,12 +106,7 @@ public class BookService {
             userOptional = userRepository.findByEmail(identifier);
         }
 
-        if (userOptional.isPresent()) {
-
-            User user = userOptional.get();
-            return user.getBooks();
-        }
-        return Collections.emptySet();
+      return userOptional.map(User::getBooks).orElse(Collections.emptySet());
     }
 
 
@@ -159,19 +165,4 @@ public class BookService {
 
         return userDto;
     }
-
-    private UserShortDto fromUserToUserShortDto(User user) {
-
-        UserShortDto userShortDto = new UserShortDto();
-        userShortDto.setUsername(user.getUsername());
-        userShortDto.setEmail(user.getEmail());
-        userShortDto.setRole(user.getRole());
-
-        return userShortDto;
-    }
-
-   /* public List<Book>  getBooksByUserId(Integer id) {
-
-        return bookRepository.findByUserId(id);
-    }*/
 }

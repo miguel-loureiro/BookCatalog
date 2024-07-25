@@ -45,7 +45,6 @@ public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEv
         String superUsername = "superuser";
         String superEmail = "superuser@email.com";
 
-        // Check if the superuser already exists
         if (userRepository.findByUsername(superUsername).isPresent()) {
             System.out.println("Superuser already exists");
             return;
