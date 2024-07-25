@@ -68,7 +68,7 @@ public class BookControllerTest {
         currentUser.setRole(Role.SUPER);
 
         Book book = new Book();
-        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[1024]);
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[(int) (MAX_FILE_SIZE - 1)]);
 
         Book savedBook = new Book();
         when(bookService.createBook(book)).thenReturn(savedBook);
@@ -105,7 +105,7 @@ public class BookControllerTest {
         currentUser.setRole(Role.READER);
 
         Book book = new Book();
-        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[1024]);
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[(int) (MAX_FILE_SIZE - 1)]);
 
         ResponseEntity<?> response = bookController.createBook(book, file);
 
@@ -113,6 +113,27 @@ public class BookControllerTest {
         assertEquals("You do not have permission to create book. Only SUPER or ADMIN is allowed.", response.getBody());
 
         verify(bookService, never()).createBook(any(Book.class));
+    }
+
+    @Test
+    public void testCreateBook_FileSizeAtLimit() throws IOException {
+
+        Book book = new Book();
+        MockMultipartFile fileAtLimit = new MockMultipartFile("file", "file.txt", "text/plain", new byte[(int) MAX_FILE_SIZE]);
+
+        User currentUser = new User();
+        currentUser.setRole(Role.ADMIN);
+        when(authentication.getPrincipal()).thenReturn(currentUser);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+
+        when(bookService.createBook(any(Book.class))).thenReturn(book);
+
+        ResponseEntity<?> response = bookController.createBook(book, fileAtLimit);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(book, response.getBody());
+
+        verify(bookService, times(1)).createBook(any(Book.class));
     }
 
     @Test
@@ -243,6 +264,7 @@ public class BookControllerTest {
 
     @Test
     public void testGetBooksByUserUsernameOrEmail_Success() {
+
         Set<BookShortDto> books = new HashSet<>(Arrays.asList(new BookShortDto()));
         when(bookService.getBooksByUserIdentifier("identifier")).thenReturn(books);
 
@@ -253,7 +275,23 @@ public class BookControllerTest {
     }
 
     @Test
+    public void testGetBooksByUserUsernameOrEmail_NoBooksFound() {
+
+        // Arrange
+        String identifier = "testUser";
+
+        when(bookService.getBooksByUserIdentifier(identifier)).thenReturn(Collections.emptySet());
+
+        // Act
+        ResponseEntity<Set<BookShortDto>> response = bookController.getBooksByUserUsernameOrEmail(identifier);
+
+        // Assert
+        assertEquals(ResponseEntity.notFound().build(), response);
+    }
+
+    @Test
     public void testUpdateBook_FileIsNull() throws IOException {
+
         currentUser.setRole(Role.ADMIN);
 
         Book existingBook = new Book();
@@ -275,6 +313,7 @@ public class BookControllerTest {
 
     @Test
     public void testUpdateBook_FileIsEmpty() throws IOException {
+
         currentUser.setRole(Role.ADMIN);
 
         Book existingBook = new Book();
@@ -319,7 +358,8 @@ public class BookControllerTest {
     }
 
     @Test
-    public void testUpdateBook_FileSizeWithinLimit() throws IOException {
+    public void testUpdateBook_FileSizeAtLimit_UserAdmin() throws IOException {
+
         currentUser.setRole(Role.ADMIN);
 
         Book existingBook = new Book();
@@ -328,7 +368,7 @@ public class BookControllerTest {
         Book updatedBookDetails = new Book();
         updatedBookDetails.setTitle("Updated Title");
 
-        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[1024]);
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[(int) MAX_FILE_SIZE]);
 
         when(bookService.getBookById(1)).thenReturn(Optional.of(existingBook));
         when(bookService.updateBook(eq(1), any(Book.class), anyString())).thenReturn(updatedBookDetails);
@@ -342,8 +382,116 @@ public class BookControllerTest {
     }
 
     @Test
-    public void testDeleteBook_Success() {
+    public void testUpdateBook_FileSizeWithinLimit_UserAdmin() throws IOException {
+
+        currentUser.setRole(Role.ADMIN);
+
+        Book existingBook = new Book();
+        existingBook.setId(1);
+
+        Book updatedBookDetails = new Book();
+        updatedBookDetails.setTitle("Updated Title");
+
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[(int) MAX_FILE_SIZE - 1]);
+
+        when(bookService.getBookById(1)).thenReturn(Optional.of(existingBook));
+        when(bookService.updateBook(eq(1), any(Book.class), anyString())).thenReturn(updatedBookDetails);
+
+        ResponseEntity<?> response = bookController.updateBook(1, updatedBookDetails, file);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedBookDetails, response.getBody());
+
+        verify(bookService, times(1)).updateBook(eq(1), any(Book.class), anyString());
+    }
+
+    @Test
+    public void testUpdateBook_FileSizeWithinLimit_UserSuper() throws IOException {
+
         currentUser.setRole(Role.SUPER);
+
+        Book existingBook = new Book();
+        existingBook.setId(1);
+
+        Book updatedBookDetails = new Book();
+        updatedBookDetails.setTitle("Updated Title");
+
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[(int) MAX_FILE_SIZE - 1]);
+
+        when(bookService.getBookById(1)).thenReturn(Optional.of(existingBook));
+        when(bookService.updateBook(eq(1), any(Book.class), anyString())).thenReturn(updatedBookDetails);
+
+        ResponseEntity<?> response = bookController.updateBook(1, updatedBookDetails, file);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedBookDetails, response.getBody());
+
+        verify(bookService, times(1)).updateBook(eq(1), any(Book.class), anyString());
+    }
+
+    @Test
+    public void testUpdateBook_BookIsNull() throws IOException {
+
+        // Arrange
+        Integer bookId = 1;
+        Book bookDetails = new Book();
+        MockMultipartFile file = new MockMultipartFile("file", "filename.txt", "text/plain", "some content".getBytes());
+
+        when(bookService.getBookById(bookId)).thenReturn(Optional.empty());
+
+        // Act
+        ResponseEntity<?> response = bookController.updateBook(bookId, bookDetails, file);
+
+        // Assert
+        assertEquals(ResponseEntity.notFound().build(), response);
+        verify(bookService, times(1)).getBookById(bookId);
+    }
+
+    @Test
+    public void testUpdateBook_UserRoleIsNotSuperOrAdmin_Failure() throws IOException {
+
+        // Arrange
+        User currentUser = new User();
+        currentUser.setRole(Role.READER);
+        when(authentication.getPrincipal()).thenReturn(currentUser);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+
+        Integer bookId = 4;
+        Book bookDetails = new Book();
+
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[1024]);
+
+        when(bookService.getBookById(bookId)).thenReturn(Optional.of(bookDetails));
+
+        // Act
+        ResponseEntity<?> response = bookController.updateBook(bookId, bookDetails, file);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals("You do not have permission to update this book. Only SUPER or ADMIN is allowed.", response.getBody());
+        verify(bookService, times(1)).getBookById(bookId);
+    }
+
+    @Test
+    public void testDeleteBook_UserSuper_Success() {
+        currentUser.setRole(Role.SUPER);
+
+        Book existingBook = new Book();
+        existingBook.setId(1);
+
+        when(bookService.getBookById(1)).thenReturn(Optional.of(existingBook));
+        doNothing().when(bookService).deleteBookById(1);
+
+        ResponseEntity<?> response = bookController.deleteBook(1);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+
+        verify(bookService, times(1)).deleteBookById(1);
+    }
+
+    @Test
+    public void testDeleteBook_UserAdmin_Success() {
+        currentUser.setRole(Role.ADMIN);
 
         Book existingBook = new Book();
         existingBook.setId(1);
