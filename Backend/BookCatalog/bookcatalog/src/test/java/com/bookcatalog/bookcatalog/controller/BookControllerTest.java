@@ -65,6 +65,7 @@ public class BookControllerTest {
 
     @Test
     public void testCreateBook_SuccessWithFile() throws IOException {
+
         currentUser.setRole(Role.SUPER);
 
         Book book = new Book();
@@ -84,6 +85,7 @@ public class BookControllerTest {
 
     @Test
     public void testCreateBook_SuccessWithoutFile() throws IOException {
+
         currentUser.setRole(Role.SUPER);
 
         Book book = new Book();
@@ -102,6 +104,7 @@ public class BookControllerTest {
 
     @Test
     public void testCreateBook_Unauthorized() throws IOException {
+
         currentUser.setRole(Role.READER);
 
         Book book = new Book();

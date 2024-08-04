@@ -15,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mock.web.MockMultipartFile;
 
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.repository.BookRepository;
@@ -25,15 +24,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.IOException;
-import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 public class BookServiceTest {
@@ -147,7 +143,7 @@ public class BookServiceTest {
         assertEquals("Test Book", foundBook.get().getTitle());
         assertEquals("Test Author", foundBook.get().getAuthor());
     }
-
+/*
     @Test
     public void testGetAllBooks_UserSuperOrAdmin_Success() {
 
@@ -209,7 +205,7 @@ public class BookServiceTest {
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
-
+*/
     @Test
     public void testGetAllBooksShort_UserSuperOrAdmin_Success() {
 

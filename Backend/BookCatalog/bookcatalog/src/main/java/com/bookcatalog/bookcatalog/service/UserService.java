@@ -37,8 +37,7 @@ public class UserService {
 
     public User createAdministrator(RegisterUserDto input) {
 
-        input.setRole(Role.ADMIN);
-        var user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), input.getRole());
+        var user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), Role.ADMIN);
 
         return userRepository.save(user);
     }
@@ -52,6 +51,7 @@ public class UserService {
             User user = userOptional.get();
 
             if (user.getRole() == Role.ADMIN ) {
+
                 userRepository.deleteById(id);
 
                 return ResponseEntity.ok().build();
@@ -75,6 +75,7 @@ public class UserService {
             User user = userOptional.get();
 
             if (user.getRole() == Role.ADMIN) {
+
                 userRepository.deleteById(user.getId());
                 return ResponseEntity.ok().build();
             } else {
@@ -87,21 +88,23 @@ public class UserService {
 
     public Optional<UserDto> getUserById(Integer id) {
 
+        UserDto currentUser = getCurrentUser();
+
+        if (currentUser == null || (currentUser.getRole() != Role.READER && currentUser.getRole() != Role.GUEST)) {
+            return Optional.empty();
+        }
+
         Optional<User> foundUser = userRepository.findById(id);
 
-        if(foundUser.isPresent()) {
-
-            UserDto currentUser = getCurrentUser();
-
-            if (currentUser != null && (currentUser.getRole() == Role.READER || currentUser.getRole() == Role.GUEST)) {
-                if (foundUser.get().getRole() == Role.ADMIN || foundUser.get().getRole() == Role.SUPER) {
-                    return Optional.empty(); // Don't return user if they have a restricted role
-                }
+        if (foundUser.isPresent()) {
+            User foundUserEntity = foundUser.get();
+            if ((currentUser.getRole() == Role.READER || currentUser.getRole() == Role.GUEST) &&
+                    (foundUserEntity.getRole() == Role.ADMIN || foundUserEntity.getRole() == Role.SUPER)) {
+                return Optional.empty();
             }
             return foundUser.map(this::fromUserToUserDto);
         }
         return Optional.empty();
-
     }
 
     public Optional<UserDto> getUserByUsernameOrEmail(String identifier) {
@@ -157,31 +160,35 @@ public class UserService {
         if (userOptional.isEmpty()) {
             userOptional = userRepository.findByEmail(identifier);
         }
-        UserDto currentUser = getCurrentUser();
 
-        if (userOptional.isPresent() && currentUser != null) {
-            User user = userOptional.get();
-
-            if ((currentUser.getRole() == Role.READER || currentUser.getRole() == Role.GUEST)
-                    && (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if ((currentUser.getRole() == Role.GUEST && user.getRole() == Role.READER) ||
-                    (currentUser.getRole() == Role.READER && user.getRole() == Role.GUEST)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.SUPER ||
-                    currentUser.getRole() == user.getRole()) {
-                userRepository.deleteById(user.getId());
-                return ResponseEntity.ok().build();
-            } else {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-        } else {
+        if (userOptional.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+
+        UserDto currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        User user = userOptional.get();
+
+        if ((currentUser.getRole() == Role.READER || currentUser.getRole() == Role.GUEST)
+                && (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if ((currentUser.getRole() == Role.GUEST && user.getRole() == Role.READER) ||
+                (currentUser.getRole() == Role.READER && user.getRole() == Role.GUEST)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.SUPER ||
+                currentUser.getRole() == user.getRole()) {
+            userRepository.deleteById(user.getId());
+            return ResponseEntity.ok().build();
+        }
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 
     public ResponseEntity<Object> updateUserById(Integer id, UserShortDto input) {
@@ -313,7 +320,7 @@ public class UserService {
         return null;
     }
 
-    private UserDto fromUserToUserDto(User user) {
+    UserDto fromUserToUserDto(User user) {
 
         UserDto userDto = new UserDto();
         userDto.setUsername(user.getUsername());
