@@ -49,6 +49,7 @@ public class Book {
     @ManyToMany(mappedBy = "books")
     private Set<User> users = new HashSet<>();
 
+    /*
     public List<UserShortDto> getUsersShort() {
         return users.stream()
                 .map(user -> new UserShortDto(
@@ -57,7 +58,7 @@ public class Book {
                         user.getRole()))
                 .collect(Collectors.toList());
     }
-
+*/
     public Book() {
 
     }
@@ -71,6 +72,16 @@ public class Book {
         this.publishDate = publishDate;
         this.coverImage = coverImage;
         this.users = users;
+    }
+
+    public Book(Integer id, String title, String author, String isbn, String price, Date publishDate, String coverImage) {
+        this.id = id;
+        this.title = title;
+        this.author = author;
+        this.isbn = isbn;
+        this.price = price;
+        this.publishDate = publishDate;
+        this.coverImage = coverImage;
     }
 
     public String getPublishDate() {

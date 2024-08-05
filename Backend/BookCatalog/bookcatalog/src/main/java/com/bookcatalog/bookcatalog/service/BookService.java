@@ -15,6 +15,9 @@ import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.model.dto.UserShortDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service;
 
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.repository.BookRepository;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Service
 public class BookService {
@@ -47,10 +51,13 @@ public class BookService {
     }
 
     public Optional<Book> getBookById(Integer id) {
+
         return bookRepository.findById(id);
     }
 
-    public ResponseEntity<List<Book>> getAllBooks() {
+    public ResponseEntity<Page<Book>> getAllBooks(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
 
         UserDto user = getCurrentUser();
 
@@ -59,8 +66,9 @@ public class BookService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        List<Book> books = bookRepository.findAll();
-        return ResponseEntity.ok(books);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Book> booksPage = bookRepository.findAll(pageable);
+        return ResponseEntity.ok(booksPage);
     }
 
     public ResponseEntity<List<BookShortDto>> getAllBooksShort() {
@@ -92,13 +100,13 @@ public class BookService {
         return ResponseEntity.ok(booksCompactList);
     }
 
-    public Set<BookShortDto> getBooksByUserId(Integer userId) {
+    public Set<Book> getBooksByUserId(Integer userId) {
 
         Optional<User> userOptional = userRepository.findById(userId);
         return userOptional.map(User::getBooks).orElse(Collections.emptySet());
     }
 
-    public Set<BookShortDto> getBooksByUserIdentifier(String identifier) {
+    public Set<Book> getBooksByUserIdentifier(String identifier) {
 
         Optional<User> userOptional = userRepository.findByUsername(identifier);
 

@@ -1,8 +1,10 @@
 package com.bookcatalog.bookcatalog.model;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.bookcatalog.bookcatalog.helpers.DateHelper;
 import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
 import jakarta.persistence.*;
 import lombok.*;
@@ -41,14 +43,21 @@ public class User implements UserDetails {
     @JoinTable(name="user_books", joinColumns = @JoinColumn(name= "user_id"), inverseJoinColumns = @JoinColumn(name= "book_id"))
     private Set<Book> books = new HashSet<>();
 
-    public Set<BookShortDto> getBooks() {
+    public Set<Book> getBooks() {
         return books.stream()
-                .map(book -> new BookShortDto(
-                        book.getTitle(),
-                        book.getAuthor(),
-                        book.getIsbn(),
-                        book.getPublishDate(),
-                        book.getPrice()))
+                .map(book -> {
+                    try {
+                        return new Book(book.getId(),
+                                book.getTitle(),
+                                book.getAuthor(),
+                                book.getIsbn(),
+                                book.getPrice(),
+                                DateHelper.deserialize(book.getPublishDate()),
+                                book.getCoverImage());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
                 .collect(Collectors.toSet());
     }
 

@@ -12,6 +12,7 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,20 +44,25 @@ public class BookController {
 
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<List<Book>> getAllBooks() {
-        return bookService.getAllBooks();
+    public ResponseEntity<Page<Book>> getAllBooks(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
+    ) {
+        return bookService.getAllBooks(page, size);
     }
 
+    /*
     @GetMapping("/allshort")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<List<BookShortDto>>getAllBooksShort() {
         return bookService.getAllBooksShort();
     }
 
+*/
     @GetMapping("/user/{userId}")
-    public ResponseEntity<Set<BookShortDto>> getBooksByUserId(@PathVariable Integer userId) {
+    public ResponseEntity<Set<Book>> getBooksByUserId(@PathVariable Integer userId) {
 
-        Set<BookShortDto> books = bookService.getBooksByUserId(userId);
+        Set<Book> books = bookService.getBooksByUserId(userId);
         if (books.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -64,9 +70,9 @@ public class BookController {
     }
 
     @GetMapping("/user")
-    public ResponseEntity<Set<BookShortDto>> getBooksByUserUsernameOrEmail(@RequestParam String identifier) {
+    public ResponseEntity<Set<Book>> getBooksByUserUsernameOrEmail(@RequestParam String identifier) {
 
-        Set<BookShortDto> books = bookService.getBooksByUserIdentifier(identifier);
+        Set<Book> books = bookService.getBooksByUserIdentifier(identifier);
         if (books.isEmpty()) {
 
             return ResponseEntity.notFound().build();

@@ -76,6 +76,7 @@ public class BookTest {
         Assertions.assertEquals("newcover.jpg", book.getCoverImage());
     }
 
+    /*
     @Test
     public void testGetUsersShort() {
         var userShortDtos = book.getUsersShort();
@@ -84,7 +85,7 @@ public class BookTest {
         Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username1")));
         Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username2")));
     }
-
+*/
     @Test
     public void testSetPublishDate() throws IOException {
         Book book = new Book();
