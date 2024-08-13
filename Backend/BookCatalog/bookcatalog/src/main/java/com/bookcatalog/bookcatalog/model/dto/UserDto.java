@@ -20,5 +20,5 @@ public class UserDto {
     private Role role;
     @Getter
     @Setter
-    private List<BookShortDto> books;
+    private List<Book> books;
 }

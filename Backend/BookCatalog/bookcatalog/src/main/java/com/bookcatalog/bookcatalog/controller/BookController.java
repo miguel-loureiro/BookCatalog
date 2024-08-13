@@ -4,13 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Set;
 
-import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
-import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -37,9 +33,8 @@ public class BookController {
     @GetMapping("/{id}")
     public ResponseEntity<Book> getBookById(@PathVariable Integer id) {
 
-        return bookService.getBookById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+           Book book = bookService.getBookByBookId(id);
+           return ResponseEntity.ok(book);
     }
 
     @GetMapping("/all")
@@ -47,22 +42,18 @@ public class BookController {
     public ResponseEntity<Page<Book>> getAllBooks(
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size
-    ) {
+    ) throws IOException {
+
         return bookService.getAllBooks(page, size);
     }
 
-    /*
-    @GetMapping("/allshort")
-    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<List<BookShortDto>>getAllBooksShort() {
-        return bookService.getAllBooksShort();
-    }
-
-*/
     @GetMapping("/user/{userId}")
-    public ResponseEntity<Set<Book>> getBooksByUserId(@PathVariable Integer userId) {
+    public ResponseEntity<Page<Book>> getBooksByUserId(@PathVariable Integer userId,
+                                                      @RequestParam(name = "page", defaultValue = "0") int page,
+                                                      @RequestParam(name = "size", defaultValue = "10") int size) {
 
-        Set<Book> books = bookService.getBooksByUserId(userId);
+        Page<Book> books = bookService.getBooksByUserId(userId, page, size);
+
         if (books.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -70,9 +61,12 @@ public class BookController {
     }
 
     @GetMapping("/user")
-    public ResponseEntity<Set<Book>> getBooksByUserUsernameOrEmail(@RequestParam String identifier) {
+    public ResponseEntity<Page<Book>> getBooksByUserUsernameOrEmail(@RequestParam String identifier,
+                                                                   @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                   @RequestParam(name = "size", defaultValue = "10") int size) {
 
-        Set<Book> books = bookService.getBooksByUserIdentifier(identifier);
+        Page<Book> books = bookService.getBooksByUserIdentifier(identifier, page, size);
+
         if (books.isEmpty()) {
 
             return ResponseEntity.notFound().build();
@@ -106,13 +100,13 @@ public class BookController {
         final Book savedBook = bookService.createBook(book);
         return ResponseEntity.ok(savedBook);
     }
-
+/*
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<?> updateBook(@PathVariable Integer id, @RequestPart("book") Book bookDetails,
             @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
-        Book existingBook = bookService.getBookById(id).orElse(null);
+        Book existingBook = bookService.getBookByBookId(id);
 
         if (existingBook == null) {
 
@@ -143,10 +137,11 @@ public class BookController {
 
         bookDetails.setId(existingBook.getId());  // Ensure that the Id of the book remains the same
 
-        final Book updatedBook = bookService.updateBook(id, bookDetails, file != null ? bookDetails.getCoverImage() : null);
+        final Book updatedBook = bookService.updateBookByBookId(id, bookDetails, file != null ? bookDetails.getCoverImage() : null);
         return ResponseEntity.ok(updatedBook);
         }
-
+*/
+    /*
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<?> deleteBook(@PathVariable Integer id) {
@@ -158,12 +153,13 @@ public class BookController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to update this book. Only SUPER or ADMIN is allowed.");
         }
 
-        Book book = bookService.getBookById(id).orElse(null);
+        Book book = bookService.getBookByBookId(id);
         if (book == null) {
             return ResponseEntity.notFound().build();
         }
 
-        bookService.deleteBookById(id);
+        bookService.deleteBookByBookId(id);
         return ResponseEntity.noContent().build();
     }
+     */
 }

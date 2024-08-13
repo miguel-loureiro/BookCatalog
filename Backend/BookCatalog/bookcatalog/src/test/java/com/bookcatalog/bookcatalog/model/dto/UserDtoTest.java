@@ -13,14 +13,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class UserDtoTest {
 
     private UserDto mockUserDto;
-    private BookShortDto mockBook1;
-    private BookShortDto mockBook2;
+    private Book mockBook1;
+    private Book mockBook2;
+
 
     @BeforeEach
     void setUp() {
 
-        mockBook1 = new BookShortDto("Title1", "Author1", "ISBN1", "01/2020", "9.99");
-        mockBook2 = new BookShortDto("Title2", "Author2", "ISBN2", "02/2021", "19.99");
+        mockBook1 = new Book("Title1", "Author1");
+        mockBook2 = new Book("Title2", "Author2");
 
         mockUserDto = new UserDto();
     }
@@ -45,7 +46,8 @@ class UserDtoTest {
 
     @Test
     void getBooks() {
-        List<BookShortDto> mockedBooks = Arrays.asList(mockBook1, mockBook2);
+
+        List<Book> mockedBooks = Arrays.asList(mockBook1, mockBook2);
         mockUserDto.setBooks(mockedBooks);
         assertEquals(mockedBooks, mockUserDto.getBooks());
     }
@@ -70,7 +72,8 @@ class UserDtoTest {
 
     @Test
     void setBooks() {
-        List<BookShortDto> mockedBooks = Arrays.asList(mockBook1, mockBook2);
+
+        List<Book> mockedBooks = Arrays.asList(mockBook1, mockBook2);
         mockUserDto.setBooks(mockedBooks);
         assertEquals(mockedBooks, mockUserDto.getBooks());
     }

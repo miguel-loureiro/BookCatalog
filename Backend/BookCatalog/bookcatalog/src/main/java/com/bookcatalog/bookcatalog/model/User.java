@@ -5,7 +5,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.bookcatalog.bookcatalog.helpers.DateHelper;
-import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -44,21 +43,12 @@ public class User implements UserDetails {
     private Set<Book> books = new HashSet<>();
 
     public Set<Book> getBooks() {
-        return books.stream()
-                .map(book -> {
-                    try {
-                        return new Book(book.getId(),
-                                book.getTitle(),
-                                book.getAuthor(),
-                                book.getIsbn(),
-                                book.getPrice(),
-                                DateHelper.deserialize(book.getPublishDate()),
-                                book.getCoverImage());
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .collect(Collectors.toSet());
+
+        if(books == null) {
+
+            books = new HashSet<>();
+        }
+        return books;
     }
 
     // No-argument constructor

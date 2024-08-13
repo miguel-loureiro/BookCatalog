@@ -1,9 +1,13 @@
 package com.bookcatalog.bookcatalog.service;
 
+import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.*;
+import com.bookcatalog.bookcatalog.repository.BookRepository;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,11 +22,17 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
+    @Autowired
     private final UserRepository userRepository;
+
+    @Autowired
+    private final BookRepository bookRepository;
+
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, BookRepository bookRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.bookRepository = bookRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -328,15 +338,5 @@ public class UserService {
         userDto.setRole(user.getRole());
 
         return userDto;
-    }
-
-    private UserShortDto fromUserToUserShortDto(User user) {
-
-        UserShortDto userShortDto = new UserShortDto();
-        userShortDto.setUsername(user.getUsername());
-        userShortDto.setEmail(user.getEmail());
-        userShortDto.setRole(user.getRole());
-
-        return userShortDto;
     }
 }

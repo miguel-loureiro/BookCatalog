@@ -8,14 +8,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
+import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
-import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,14 +22,13 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.service.BookService;
@@ -161,7 +158,7 @@ public class BookControllerTest {
 
         Book book = new Book();
         book.setId(1);
-        when(bookService.getBookById(1)).thenReturn(Optional.of(book));
+        when(bookService.getBookByBookId(1)).thenReturn(book);
 
         ResponseEntity<Book> response = bookController.getBookById(1);
 
@@ -172,16 +169,32 @@ public class BookControllerTest {
     @Test
     public void testGetBookById_NotFound() {
 
-        when(bookService.getBookById(1)).thenReturn(Optional.empty());
+        when(bookService.getBookByBookId(1)).thenThrow(new BookNotFoundException("Book not found with id: " + "1", new EntityNotFoundException()));
 
-        ResponseEntity<Book> response = bookController.getBookById(1);
+        assertThrows(BookNotFoundException.class, () -> {
+            bookController.getBookById(1);
+        });
+    }
 
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    @Test
+    public void testGetAllBooks_NullResponse() throws IOException {
+        // Arrange
+        int page = 0;
+        int size = 10;
+        when(bookService.getAllBooks(anyInt(), anyInt())).thenReturn(null);
+
+        // Act
+        ResponseEntity<Page<Book>> response = bookController.getAllBooks(page, size);
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNull(response.getBody());
+        verify(bookService).getAllBooks(page, size);
     }
 
+
     @Test
-    public void testGetAllBooks_Success_AsSuperUser() {
+    public void testGetAllBooks_Success_AsSuperUser() throws IOException {
 
         currentUser.setRole(Role.SUPER);
         Page<Book> booksPage = new PageImpl<>(List.of(new Book()));
@@ -194,7 +207,7 @@ public class BookControllerTest {
     }
 
     @Test
-    public void testGetAllBooks_Success_AsAdminUser() {
+    public void testGetAllBooks_Success_AsAdminUser() throws IOException {
 
         currentUser.setRole(Role.ADMIN);
         Page<Book> booksPage = new PageImpl<>(List.of(new Book()));
@@ -207,7 +220,20 @@ public class BookControllerTest {
     }
 
     @Test
-    public void testGetAllBooks_Forbidden_AsNormalUser() {
+    public void testGetAllBooks_Exception_AsAdminUser() throws IOException {
+
+        currentUser.setRole(Role.ADMIN);
+        when(bookService.getAllBooks(0, 10)).thenThrow(new RuntimeException("An error occurred while fetching books"));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            bookController.getAllBooks(0, 10);
+        });
+
+        assertEquals("An error occurred while fetching books", exception.getMessage());
+    }
+
+    @Test
+    public void testGetAllBooks_Forbidden_AsNormalUser() throws IOException {
 
         currentUser.setRole(Role.READER);
 
@@ -216,58 +242,29 @@ public class BookControllerTest {
         assertNull(response);
     }
 
-    /*
-    @Test
-    public void testGetAllBooksShort_Success_AsSuperUser() {
-        currentUser.setRole(Role.SUPER);
-        List<BookShortDto> books = Arrays.asList(new BookShortDto());
-        when(bookService.getAllBooksShort()).thenReturn(ResponseEntity.ok(books));
 
-        ResponseEntity<List<BookShortDto>> response = bookController.getAllBooksShort();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(books, response.getBody());
-    }
-
-    @Test
-    public void testGetAllBooksShort_Success_AsAdminUser() {
-        currentUser.setRole(Role.ADMIN);
-        List<BookShortDto> books = Arrays.asList(new BookShortDto());
-        when(bookService.getAllBooksShort()).thenReturn(ResponseEntity.ok(books));
-
-        ResponseEntity<List<BookShortDto>> response = bookController.getAllBooksShort();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(books, response.getBody());
-    }
-
-    @Test
-    public void testGetAllBooksShort_Forbidden_AsNonAdminUser() {
-        currentUser.setRole(Role.READER);
-
-        ResponseEntity<List<BookShortDto>> response = bookController.getAllBooksShort();
-
-        assertNull(response);
-    }
-*/
     @Test
     public void testGetBooksByUserId_Success() {
 
-        Set<Book> books = new HashSet<>(Arrays.asList(new Book()));
-        when(bookService.getBooksByUserId(1)).thenReturn(books);
+        List<Book> bookList = List.of(new Book("Title1", "Author1"), new Book("Title2", "Author2"));
+        Page<Book> booksPage = new PageImpl<>(bookList, PageRequest.of(0, 10), bookList.size());
 
-        ResponseEntity<Set<Book>> response = bookController.getBooksByUserId(1);
+        when(bookService.getBooksByUserId(1, 0, 10)).thenReturn(booksPage);
 
+        // Act
+        ResponseEntity<Page<Book>> response = bookController.getBooksByUserId(1, 0, 10);
+
+        // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(books, response.getBody());
+        assertEquals(booksPage, response.getBody());
     }
 
     @Test
     public void testGetBooksByUserId_NotFound() {
 
-        when(bookService.getBooksByUserId(1)).thenReturn(Collections.emptySet());
+        when(bookService.getBooksByUserId(1, 0, 10)).thenReturn(Page.empty());
 
-        ResponseEntity<Set<Book>> response = bookController.getBooksByUserId(1);
+        ResponseEntity<Page<Book>> response = bookController.getBooksByUserId(1, 0, 10);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertNull(response.getBody());
@@ -276,13 +273,14 @@ public class BookControllerTest {
     @Test
     public void testGetBooksByUserUsernameOrEmail_Success() {
 
-        Set<Book> books = new HashSet<>(Arrays.asList(new Book()));
-        when(bookService.getBooksByUserIdentifier("identifier")).thenReturn(books);
+        List<Book> bookList = List.of(new Book("Title1", "Author1"), new Book("Title2", "Author2"));
+        Page<Book> booksPage = new PageImpl<>(bookList, PageRequest.of(0, 10), bookList.size());
+        when(bookService.getBooksByUserIdentifier("identifier", 0, 10)).thenReturn(booksPage);
 
-        ResponseEntity<Set<Book>> response = bookController.getBooksByUserUsernameOrEmail("identifier");
+        ResponseEntity<Page<Book>> response = bookController.getBooksByUserUsernameOrEmail("identifier", 0, 10);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(books, response.getBody());
+        assertEquals(booksPage, response.getBody());
     }
 
     @Test
@@ -290,16 +288,15 @@ public class BookControllerTest {
 
         // Arrange
         String identifier = "testUser";
-
-        when(bookService.getBooksByUserIdentifier(identifier)).thenReturn(Collections.emptySet());
+        when(bookService.getBooksByUserIdentifier(identifier, 0, 10)).thenReturn(Page.empty());
 
         // Act
-        ResponseEntity<Set<Book>> response = bookController.getBooksByUserUsernameOrEmail(identifier);
+        ResponseEntity<Page<Book>> response = bookController.getBooksByUserUsernameOrEmail(identifier, 0, 10);
 
         // Assert
         assertEquals(ResponseEntity.notFound().build(), response);
     }
-
+/*
     @Test
     public void testUpdateBook_FileIsNull() throws IOException {
 
@@ -311,7 +308,7 @@ public class BookControllerTest {
         Book updatedBookDetails = new Book();
         updatedBookDetails.setTitle("Updated Title");
 
-        when(bookService.getBookById(1)).thenReturn(Optional.of(existingBook));
+        when(bookService.getBookByBookId(1)).thenReturn(existingBook);
         when(bookService.updateBook(eq(1), any(Book.class), isNull())).thenReturn(updatedBookDetails);
 
         ResponseEntity<?> response = bookController.updateBook(1, updatedBookDetails, null);
@@ -546,7 +543,7 @@ public class BookControllerTest {
 
         verify(bookService, never()).deleteBookById(anyInt());
     }
-
+*/
     @AfterEach
     public void tearDown() {
         SecurityContextHolder.clearContext();

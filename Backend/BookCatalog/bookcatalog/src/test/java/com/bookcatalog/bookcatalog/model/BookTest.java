@@ -25,11 +25,12 @@ public class BookTest {
 
     @BeforeEach
     public void setUp() {
+
         users = new HashSet<>();
         users.add(new User("username1", "email1@example.com", "password1", Role.READER));
         users.add(new User("username2", "email2@example.com", "password2", Role.READER));
 
-        book = new Book(1, "Title", "Author", "9781234567890", "19.99", new Date(), "cover.jpg", users);
+        book = new Book("Title", "Author", "9781234567890", "19.99", new Date(), "cover.jpg", users);
     }
 
     @Test

@@ -22,8 +22,8 @@ class UserTest {
     public void setUp() {
 
         books = new HashSet<>();
-        books.add(new Book(1, "Title 1", "Author 1", "9781234567890", "19.99", new Date(), "cover1.jpg", new HashSet<>()));
-        books.add(new Book(2, "Title 2", "Author 2", "9789876543210", "29.99", new Date(), "cover2.jpg", new HashSet<>()));
+        books.add(new Book("Title 1", "Author 1", "9781234567890", "19.99", new Date(), "cover1.jpg", new HashSet<>()));
+        books.add(new Book("Title 2", "Author 2", "9789876543210", "29.99", new Date(), "cover2.jpg", new HashSet<>()));
 
         user = new User("username", "email@example.com", "password", Role.READER);
         user.setId(1);
@@ -67,6 +67,21 @@ class UserTest {
         assertEquals(2, bookShortDtos.size());
         assertTrue(bookShortDtos.stream().anyMatch(dto -> dto.getTitle().equals("Title 1")));
         assertTrue(bookShortDtos.stream().anyMatch(dto -> dto.getTitle().equals("Title 2")));
+    }
+
+    @Test
+    void testGetBooks_EmptySet() {
+        // Arrange
+        User user = new User();
+        // Ensure books is initialized as an empty set
+        user.setBooks(new HashSet<>());
+
+        // Act
+        Set<Book> books = user.getBooks();
+
+        // Assert
+        assertNotNull(books, "Books set should not be null");
+        assertTrue(books.isEmpty(), "Books set should be empty when no books are associated with the user");
     }
 
     @Test

@@ -1,18 +1,30 @@
 package com.bookcatalog.bookcatalog.service;
 
-import com.bookcatalog.bookcatalog.helpers.DateHelper;
+import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
-import com.bookcatalog.bookcatalog.model.dto.BookShortDto;
-import com.bookcatalog.bookcatalog.model.dto.BookTitleAndAuthorDto;
 import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
+import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByISBNStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByIdStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByTitleStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByISBNStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByIdStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByTitleStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -38,7 +50,16 @@ public class BookServiceTest {
     private BookRepository bookRepository;
 
     @Mock
+    private Book mockBook;
+
+    @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserDetails userDetails;
+
+    @Mock
+    private User mockUser;
 
     @Mock
     private SecurityContext securityContext;
@@ -46,32 +67,61 @@ public class BookServiceTest {
     @Mock
     private Authentication authentication;
 
-    @InjectMocks
-    private BookService bookService;
+    @Mock
+    private UpdateBookByIdStrategy updateBookByIdStrategy;
+
+    @Mock
+    private UpdateBookByTitleStrategy updateBookByTitleStrategy;
+
+    @Mock
+    private DeleteBookByIdStrategy deleteBookByIdStrategy;
+
+    @Mock
+    private DeleteBookByTitleStrategy deleteBookByTitleStrategy;
+
+    @Mock
+    private DeleteBookByISBNStrategy deleteBookByISBNStrategy;
+
+    @Mock
+    private UpdateBookByISBNStrategy updateBookByISBNStrategy;
+
+    private BookService bookService; // removi isto do injectMock pois tenho 2 construtores diferentes e o injectMocks usa o que tem todos os argumentos
+    private Book book;
+    private Book newDetails;
 
     @BeforeEach
     public void setUp() {
+
         MockitoAnnotations.openMocks(this);
+
+        List<UpdateStrategy> updatestrategies = List.of(updateBookByIdStrategy, updateBookByTitleStrategy, updateBookByISBNStrategy);
+        List<DeleteStrategy> deletestrategies = List.of(deleteBookByIdStrategy, deleteBookByTitleStrategy, deleteBookByISBNStrategy);
+        bookService = new BookService(userRepository, bookRepository, updatestrategies, deletestrategies);
         SecurityContextHolder.setContext(securityContext);
+
+        book = new Book(1, "Title", "Author");
+        newDetails = new Book(1, "New Title", "New Author");
     }
 
-    private void mockCurrentUser(UserDto userDto) {
+    private void mockCurrentUser(User user) {
 
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(userDto.getUsername());
+        if (user == null) {
 
-        when(authentication.getPrincipal()).thenReturn(userDetails);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(userDetails);
-        when(userRepository.findByUsername(userDto.getUsername())).thenReturn(Optional.of(mockUser(userDto)));
-    }
+            SecurityContextHolder.clearContext();
+            when(securityContext.getAuthentication()).thenReturn(null);
 
-    private User mockUser(UserDto userDto) {
+        } else {
 
-        User user = new User();
-        user.setUsername(userDto.getUsername());
-        user.setRole(userDto.getRole());
-        return user;
+            UserDetails userDetails = mock(UserDetails.class);
+            when(userDetails.getUsername()).thenReturn(user.getUsername());
+
+            SecurityContextHolder.setContext(securityContext);
+
+            when(authentication.getPrincipal()).thenReturn(userDetails);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+
+            when(userRepository.findByUsername(user.getUsername())).thenReturn(Optional.of(user));
+        }
     }
 
     @Test
@@ -120,230 +170,252 @@ public class BookServiceTest {
     }
 
     @Test
-    void testGetBookById_Success() {
+    public void testGetBookByBookId_BookFound_Success() {
+        // Arrange
+        Integer id = 1;
+        Book existingBook = new Book(id, "Existing Title", "Existing Author");
 
-        //Arrange
-        Integer bookId = 8;
-        Book book = new Book();
-        book.setTitle("Test Book");
-        book.setAuthor("Test Author");
+        // Mock the repository method
+        when(bookRepository.getReferenceById(id)).thenReturn(existingBook);
 
-        Book savedBook = new Book();
-        savedBook.setId(bookId);
-        savedBook.setTitle("Test Book");
-        savedBook.setAuthor("Test Author");
+        // Act
+        Book result = bookService.getBookByBookId(id);
 
-        when(bookRepository.findById(8)).thenReturn(Optional.of(book));
+        // Assert
+        assertNotNull(result);
+        assertEquals(existingBook.getId(), result.getId());
+        assertEquals(existingBook.getTitle(), result.getTitle());
+        assertEquals(existingBook.getAuthor(), result.getAuthor());
 
-        //Act
-        Optional<Book> foundBook = bookService.getBookById(bookId);
-
-        //Assert
-        assertTrue(foundBook.isPresent());
-        assertEquals("Test Book", foundBook.get().getTitle());
-        assertEquals("Test Author", foundBook.get().getAuthor());
+        // Verify the repository method was called
+        verify(bookRepository, times(1)).getReferenceById(id);
     }
-/*
+
     @Test
-    public void testGetAllBooks_UserSuperOrAdmin_Success() {
+    public void testGetBookByBookId_BookNotFound_Failure() {
+        // Arrange
+        Integer id = 1;
+
+        // Mock the repository method to throw EntityNotFoundException
+        when(bookRepository.getReferenceById(id)).thenThrow(new EntityNotFoundException());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            bookService.getBookByBookId(id);
+        });
+
+        assertEquals("Book not found with id: " + id, exception.getMessage());
+
+        // Verify the repository method was called
+        verify(bookRepository, times(1)).getReferenceById(id);
+    }
+
+    @Test
+    public void testGetBookByIsbn_BookFound() {
+        // Arrange
+        String isbn = "1234567890";
+        Book book = new Book("Title", "Author", isbn, "10.99", null, null, null);
+        when(bookRepository.findBookByIsbn(isbn)).thenReturn(Optional.of(book));
+
+        // Act
+        Optional<Book> result = bookService.getBookByIsbn(isbn);
+
+        // Assert
+        assertTrue(result.isPresent());
+        assertEquals(book, result.get());
+        verify(bookRepository, times(1)).findBookByIsbn(isbn);
+    }
+
+    @Test
+    public void testGetBookByIsbn_BookNotFound() {
+        // Arrange
+        String isbn = "1234567890";
+        when(bookRepository.findBookByIsbn(isbn)).thenReturn(Optional.empty());
+
+        // Act
+        Optional<Book> result = bookService.getBookByIsbn(isbn);
+
+        // Assert
+        assertFalse(result.isPresent());
+        verify(bookRepository, times(1)).findBookByIsbn(isbn);
+    }
+
+    @Test
+    public void testGetBookByTitle_BookFound() {
+        // Arrange
+        String title = "Some Title";
+        Book book = new Book(title, "Author", "1234567890", "10.99", null, null, null);
+        when(bookRepository.findBookByTitle(title)).thenReturn(Optional.of(book));
+
+        // Act
+        Optional<Book> result = bookService.getBookByTitle(title);
+
+        // Assert
+        assertTrue(result.isPresent());
+        assertEquals(book, result.get());
+        verify(bookRepository, times(1)).findBookByTitle(title);
+    }
+
+    @Test
+    public void testGetBookByTitle_BookNotFound() {
+        // Arrange
+        String title = "Some Title";
+        when(bookRepository.findBookByTitle(title)).thenReturn(Optional.empty());
+
+        // Act
+        Optional<Book> result = bookService.getBookByTitle(title);
+
+        // Assert
+        assertFalse(result.isPresent());
+        verify(bookRepository, times(1)).findBookByTitle(title);
+    }
+
+    @Test
+    public void testGetBooksByAuthor_BooksFound() {
+        // Arrange
+        String author = "Author";
+        int page = 0;
+        int size = 10;
+        Pageable pageable = PageRequest.of(page, size);
+
+        List<Book> books = List.of(
+                new Book("Title1", author, "1234567890", "10.99", null, null, null),
+                new Book("Title2", author, "0987654321", "12.99", null, null, null)
+        );
+
+        Page<Book> bookPage = new PageImpl<>(books, pageable, books.size());
+
+        when(bookRepository.findBooksByAuthor(author, pageable)).thenReturn(bookPage);
+
+        // Act
+        Page<Book> result = bookService.getBooksByAuthor(author, page, size);
+
+        // Assert
+        assertEquals(books.size(), result.getTotalElements());
+        assertEquals(books, result.getContent());
+        verify(bookRepository, times(1)).findBooksByAuthor(author, pageable);
+    }
+
+    @Test
+    public void testGetBooksByAuthor_NoBooksFound() {
+        // Arrange
+        String author = "Author";
+        int page = 0;
+        int size = 10;
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Book> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, 0);
+
+        when(bookRepository.findBooksByAuthor(author, pageable)).thenReturn(emptyPage);
+
+        // Act
+        Page<Book> result = bookService.getBooksByAuthor(author, page, size);
+
+        // Assert
+        assertEquals(0, result.getTotalElements());
+        assertTrue(result.getContent().isEmpty());
+        verify(bookRepository, times(1)).findBooksByAuthor(author, pageable);
+    }
+
+    @Test
+    public void testGetAllBooks_UserSuperOrAdmin_Success() throws IOException {
 
         // Arrange
-        UserDto user = new UserDto();
+        User user = new User();
         user.setRole(Role.SUPER);
         mockCurrentUser(user);
 
-        List<Book> books = Arrays.asList(new Book(), new Book());
-        when(bookRepository.findAll()).thenReturn(books);
+        Book book1 = new Book("Title1", "Author1", "000000000000", "10.00", new Date(), "cover1.jpg");
+        Book book2 = new Book("Title2", "Author2", "000000000001", "15.00", new Date(), "cover2.jpg");
+        List<Book> books = Arrays.asList(book1, book2);
+        Page<Book> booksPage = new PageImpl<>(books);
+
+        when(bookRepository.findAll(any(Pageable.class))).thenReturn(booksPage);
 
         // Act
-        ResponseEntity<List<Book>> response = bookService.getAllBooks();
+        ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(2, Objects.requireNonNull(response.getBody()).size());
+        assertEquals(2, Objects.requireNonNull(response.getBody()).getTotalElements());
     }
 
     @Test
-    public void testGetAllBooks_UserReaderOrGuest_Failure() {
+    public void testGetAllBooks_UserReader_Failure() throws IOException {
 
         // Arrange
-        UserDto userDto = new UserDto();
-        userDto.setUsername("user");
-        userDto.setRole(Role.READER);
-        mockCurrentUser(userDto);
+        User user = new User();
+        user.setUsername("user");
+        user.setRole(Role.READER);
+        mockCurrentUser(user);
 
         // Act
-        ResponseEntity<List<Book>> response = bookService.getAllBooks();
+        ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
 
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 
     @Test
-    public void testGetAllBooks_UserIsNull() {
-
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(null);
-
-        ResponseEntity<List<Book>> response = bookService.getAllBooks();
-
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-    }
-
-    @Test
-    public void testGetAllBooks_UserRoleIsNull_Failure() {
+    public void testGetAllBooks_UserGuest_Failure() throws IOException {
 
         // Arrange
-        UserDto userDto = new UserDto();
-        userDto.setUsername("user");
-        userDto.setRole(null); // Role is null
-        mockCurrentUser(userDto);
+        User user = new User();
+        user.setUsername("user");
+        user.setRole(Role.GUEST);
+        mockCurrentUser(user);
 
         // Act
-        ResponseEntity<List<Book>> response = bookService.getAllBooks();
+        ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
 
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
-*/
+
     @Test
-    public void testGetAllBooksShort_UserSuperOrAdmin_Success() {
+    public void testGetAllBooks_UserIsNull() throws IOException {
 
         // Arrange
-        UserDto user = new UserDto();
+        when(securityContext.getAuthentication()).thenReturn(null);
+        SecurityContextHolder.setContext(securityContext);
+        // Act
+        ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(bookRepository, never()).findAll(any(Pageable.class));
+    }
+
+    @Test
+    public void testGetAllBooks_UserRoleIsNull_Failure() throws IOException {
+
+        // Arrange
+        User user = new User();
+        user.setUsername("user");
+        user.setRole(null);
+        mockCurrentUser(user);
+
+        // Act
+        ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+
+    }
+
+    @Test
+    public void testGetAllBooks_ThrowsException() {
+
+        // Arrange
+        User user = new User();
+        user.setUsername("user");
         user.setRole(Role.ADMIN);
         mockCurrentUser(user);
 
-        List<Book> books = Arrays.asList(new Book(), new Book());
-        when(bookRepository.findAll()).thenReturn(books);
-
         // Act
-        ResponseEntity<List<BookShortDto>> response = bookService.getAllBooksShort();
-
+        when(bookRepository.findAll(any(Pageable.class))).thenThrow(new RuntimeException("An error occurred while fetching books"));
         // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(2, Objects.requireNonNull(response.getBody()).size());
-    }
 
-    @Test
-    public void testGetAllBooksShort_UserReaderOrGuest_Failure() {
 
-        // Arrange
-        UserDto userDto = new UserDto();
-        userDto.setUsername("user");
-        userDto.setRole(Role.READER);
-        mockCurrentUser(userDto);
-
-        // Act
-        ResponseEntity<List<BookShortDto>> response = bookService.getAllBooksShort();
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNull(response.getBody());
-    }
-
-    @Test
-    public void testGetAllBooksShort_UserIsNull() {
-
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(null);
-
-        List<Book> books = Arrays.asList(new Book(), new Book());
-        when(bookRepository.findAll()).thenReturn(books);
-
-        ResponseEntity<List<BookShortDto>> response = bookService.getAllBooksShort();
-
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-
-    }
-
-    @Test
-    public void testGetAllBooksShort_UserRoleIsNull_Failure() {
-
-        // Arrange
-        UserDto userDto = new UserDto();
-        userDto.setUsername("user");
-        userDto.setRole(null); // Role is null
-        mockCurrentUser(userDto);
-
-        List<Book> books = Arrays.asList(new Book(), new Book());
-        when(bookRepository.findAll()).thenReturn(books);
-
-        // Act
-        ResponseEntity<List<BookShortDto>> response = bookService.getAllBooksShort();
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-    }
-
-    @Test
-    public void testGetAllBooksShort_Success() throws ParseException, IOException {
-        // Arrange
-        UserDto user = new UserDto();
-        user.setRole(Role.ADMIN);
-        mockCurrentUser(user);
-
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MM/yyyy");
-        Date dateInDateFormat = dateFormat.parse("04/1975");
-        String dateInString = DateHelper.serialize(dateInDateFormat);
-
-        Book book = new Book();
-        book.setTitle("Title");
-        book.setAuthor("Author");
-        book.setIsbn("ISBN");
-        book.setPrice("10.0");
-        book.setPublishDate(dateInString );
-        when(bookRepository.findAll()).thenReturn(Collections.singletonList(book));
-
-        // Act
-        ResponseEntity<List<BookShortDto>> response = bookService.getAllBooksShort();
-
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().size());
-        BookShortDto dto = response.getBody().get(0);
-        assertEquals("Title", dto.getTitle());
-        assertEquals("Author", dto.getAuthor());
-        assertEquals("ISBN", dto.getIsbn());
-        assertEquals("10.0", dto.getPrice());
-        assertNotNull(dto.getPublishDate());
-    }
-
-    @Test
-    public void testGetAllBooksShort_NullBooks() {
-        // Arrange
-        UserDto userDto = new UserDto();
-        userDto.setUsername("user");
-        userDto.setRole(Role.ADMIN); // Role is null
-        mockCurrentUser(userDto);
-
-        when(bookRepository.findAll()).thenReturn(null);
-
-        // Act
-        ResponseEntity<List<BookShortDto>> response = bookService.getAllBooksShort();
-
-        // Assert
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-    }
-
-    @Test
-    public void testGetAllBooksShort_EmptyBooksList() {
-        // Arrange
-        UserDto user = new UserDto();
-        user.setRole(Role.ADMIN);
-        user.setRole(Role.ADMIN); // Role is null
-        mockCurrentUser(user);
-
-        when(bookRepository.findAll()).thenReturn(new ArrayList<>());
-
-        // Act
-        ResponseEntity<List<BookShortDto>> response = bookService.getAllBooksShort();
-
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(0, response.getBody().size());
     }
 
     @Test
@@ -359,23 +431,23 @@ public class BookServiceTest {
 
         Date date1 = dateFormat.parse("23-08-2001");
         Date date2 = dateFormat.parse("07-12-1978");
-        books.add(new Book(1, "Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
-        books.add(new Book(2, "Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
+        books.add(new Book("Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
+        books.add(new Book("Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
         user.setBooks(books);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         // Act
-        Set<BookShortDto> result = bookService.getBooksByUserId(userId);
+        Page<Book> result = bookService.getBooksByUserId(userId,0 , 10);
 
         // Assert
-        assertEquals(2, result.size());
+        assertEquals(2, result.getTotalElements());
 
         Book book1 = books.stream().filter(book -> book.getTitle().equals("Title1")).findFirst().orElse(null);
         Book book2 = books.stream().filter(book -> book.getTitle().equals("Title2")).findFirst().orElse(null);
 
-        BookShortDto dto1 = result.stream().filter(dto -> dto.getTitle().equals("Title1")).findFirst().orElse(null);
-        BookShortDto dto2 = result.stream().filter(dto -> dto.getTitle().equals("Title2")).findFirst().orElse(null);
+        Book dto1 = result.stream().filter(dto -> dto.getTitle().equals("Title1")).findFirst().orElse(null);
+        Book dto2 = result.stream().filter(dto -> dto.getTitle().equals("Title2")).findFirst().orElse(null);
 
         assertNotNull(book1);
         assertNotNull(book2);
@@ -396,28 +468,41 @@ public class BookServiceTest {
     }
 
     @Test
+    public void testGetBooksByUserId_UserFound_StartPageIsGreater_ReturnsEmptyList() throws ParseException {
+        // Arrange
+        Integer userId = 1;
+        User user = new User();
+        Set<User> users = new HashSet<>();
+        users.add(user);
+
+        Set<Book> books = new HashSet<>();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+
+        Date date1 = dateFormat.parse("23-08-2001");
+        Date date2 = dateFormat.parse("07-12-1978");
+        books.add(new Book("Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
+        books.add(new Book("Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
+        user.setBooks(books);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        // Act
+        Page<Book> result = bookService.getBooksByUserId(userId,2 , 10);
+
+        // Assert
+        assertTrue(result.getContent().isEmpty());
+        assertEquals(books.size(), result.getTotalElements());
+        verify(userRepository, times(1)).findById(userId);
+    }
+
+    @Test
     public void testGetBooksByUserId_UserNotFound() {
         // Arrange
         Integer userId = 1;
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         // Act
-        Set<BookShortDto> result = bookService.getBooksByUserId(userId);
-
-        // Assert
-        assertTrue(result.isEmpty());
-    }
-
-
-    @Test
-    public void testGetBooksByUserIdentifier_UserNotFound() {
-        // Arrange
-        String identifier = "nonexistent";
-        when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(identifier)).thenReturn(Optional.empty());
-
-        // Act
-        Set<BookShortDto> result = bookService.getBooksByUserIdentifier(identifier);
+        Page<Book> result = bookService.getBooksByUserId(userId, 0, 10);
 
         // Assert
         assertTrue(result.isEmpty());
@@ -436,28 +521,28 @@ public class BookServiceTest {
 
         Date date1 = dateFormat.parse("23-08-2001");
         Date date2 = dateFormat.parse("07-12-1978");
-        books.add(new Book(1, "Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
-        books.add(new Book(2, "Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
+        books.add(new Book("Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
+        books.add(new Book("Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
         user.setBooks(books);
 
         when(userRepository.findByUsername(identifier)).thenReturn(Optional.of(user));
         when(userRepository.findByEmail(identifier)).thenReturn(Optional.empty());
 
         // Act
-        Set<BookShortDto> result = bookService.getBooksByUserIdentifier(identifier);
+        Page<Book> result = bookService.getBooksByUserIdentifier(identifier, 0, 10);
 
         // Print the result to console
         System.out.println(result);
 
         // Assert the size
-        assertEquals(2, result.size());
+        assertEquals(2, result.getTotalElements());
 
         // Assert the details of each book
         Book book1 = books.stream().filter(book -> book.getTitle().equals("Title1")).findFirst().orElse(null);
         Book book2 = books.stream().filter(book -> book.getTitle().equals("Title2")).findFirst().orElse(null);
 
-        BookShortDto dto1 = result.stream().filter(dto -> dto.getTitle().equals("Title1")).findFirst().orElse(null);
-        BookShortDto dto2 = result.stream().filter(dto -> dto.getTitle().equals("Title2")).findFirst().orElse(null);
+        Book dto1 = result.stream().filter(dto -> dto.getTitle().equals("Title1")).findFirst().orElse(null);
+        Book dto2 = result.stream().filter(dto -> dto.getTitle().equals("Title2")).findFirst().orElse(null);
 
         assertNotNull(book1);
         assertNotNull(book2);
@@ -477,6 +562,35 @@ public class BookServiceTest {
         assertEquals(book2.getIsbn(), dto2.getIsbn());
         assertEquals(book2.getPublishDate(), dto2.getPublishDate());
         assertEquals(book2.getPrice(), dto2.getPrice());
+    }
+
+    @Test
+    public void testGetBooksByUserIdentifier_UserFoundByUsername_StartPageIsGreater_ReturnsEmptyList() throws ParseException {
+        // Arrange
+        String identifier = "username";
+        User user = new User();
+        Set<User> users = new HashSet<>();
+        users.add(user);
+
+        Set<Book> books = new HashSet<>();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+
+        Date date1 = dateFormat.parse("23-08-2001");
+        Date date2 = dateFormat.parse("07-12-1978");
+        books.add(new Book("Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
+        books.add(new Book("Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
+        user.setBooks(books);
+
+        when(userRepository.findByUsername(identifier)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail(identifier)).thenReturn(Optional.empty());
+
+        // Act
+        Page<Book> result = bookService.getBooksByUserIdentifier(identifier, 2, 10);
+
+        // Assert
+        assertTrue(result.getContent().isEmpty());
+        assertEquals(books.size(), result.getTotalElements());
+        verify(userRepository, times(1)).findByUsername(identifier);
     }
 
     @Test
@@ -492,28 +606,28 @@ public class BookServiceTest {
 
         Date date1 = dateFormat.parse("23-08-2001");
         Date date2 = dateFormat.parse("07-12-1978");
-        books.add(new Book(1, "Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
-        books.add(new Book(2, "Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
+        books.add(new Book("Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
+        books.add(new Book("Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
         user.setBooks(books);
 
         when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
         when(userRepository.findByEmail(identifier)).thenReturn(Optional.of(user));
 
         // Act
-        Set<BookShortDto> result = bookService.getBooksByUserIdentifier(identifier);
+        Page<Book> result = bookService.getBooksByUserIdentifier(identifier, 0, 10);
 
         // Print the result to console
         System.out.println(result);
 
         // Assert the size
-        assertEquals(2, result.size());
+        assertEquals(2, result.getTotalElements());
 
         // Assert the details of each book
         Book book1 = books.stream().filter(book -> book.getTitle().equals("Title1")).findFirst().orElse(null);
         Book book2 = books.stream().filter(book -> book.getTitle().equals("Title2")).findFirst().orElse(null);
 
-        BookShortDto dto1 = result.stream().filter(dto -> dto.getTitle().equals("Title1")).findFirst().orElse(null);
-        BookShortDto dto2 = result.stream().filter(dto -> dto.getTitle().equals("Title2")).findFirst().orElse(null);
+        Book dto1 = result.stream().filter(dto -> dto.getTitle().equals("Title1")).findFirst().orElse(null);
+        Book dto2 = result.stream().filter(dto -> dto.getTitle().equals("Title2")).findFirst().orElse(null);
 
         assertNotNull(book1);
         assertNotNull(book2);
@@ -536,117 +650,318 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetAllBooksTitlesAndAuthors() {
+    public void testGetBooksByUserIdentifier_UserFoundByEmail_StartPageIsGreater_ReturnsEmptyList() throws ParseException {
         // Arrange
-        Book book1 = new Book(1, "Title1", "Author1", "ISBN1", "10.0", null, null, null);
-        Book book2 = new Book(2, "Title2", "Author2", "ISBN2", "20.0", null, null, null);
-        List<Book> books = Arrays.asList(book1, book2);
-        when(bookRepository.findAll()).thenReturn(books);
+        String identifier = "email@example.com";
+        User user = new User();
+        Set<User> users = new HashSet<>();
+        users.add(user);
+
+        Set<Book> books = new HashSet<>();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+
+        Date date1 = dateFormat.parse("23-08-2001");
+        Date date2 = dateFormat.parse("07-12-1978");
+        books.add(new Book("Title1", "Author1", "ISBN1", "10.0", date1, "coverImage1", users));
+        books.add(new Book("Title2", "Author2", "ISBN2", "20.0", date2, "coverImage2", users));
+        user.setBooks(books);
+
+        when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(identifier)).thenReturn(Optional.of(user));
 
         // Act
-        List<BookTitleAndAuthorDto> result = bookService.getAllBooksTitlesAndAuthors();
-
-        // Print the result to console
-        System.out.println(result);
+        Page<Book> result = bookService.getBooksByUserIdentifier(identifier, 2, 10);
 
         // Assert
-        assertEquals(2, result.size());
-
-        // Assert Book 1
-        BookTitleAndAuthorDto dto1 = result.get(0);
-        assertEquals("Title1", dto1.getTitle());
-        assertEquals("Author1", dto1.getAuthor());
-
-        // Assert Book 2
-        BookTitleAndAuthorDto dto2 = result.get(1);
-        assertEquals("Title2", dto2.getTitle());
-        assertEquals("Author2", dto2.getAuthor());
+        assertTrue(result.getContent().isEmpty());
+        assertEquals(books.size(), result.getTotalElements());
+        verify(userRepository, times(1)).findByEmail(identifier);
     }
 
     @Test
-    public void testUpdateBook() throws IOException {
+    public void testGetBooksByUserIdentifier_UserNotFound() {
         // Arrange
-        Integer id = 1;
-        Book existingBook = new Book(id, "Old Title", "Old Author", "Old ISBN", "5.0", null, null, null);
-        Book newDetails = new Book(null, "New Title", "New Author", "New ISBN", "15.0", null, null, null);
-        String filename = "newCoverImage.jpg";
-
-        when(bookRepository.findById(id)).thenReturn(Optional.of(existingBook));
-        when(bookRepository.save(existingBook)).thenReturn(existingBook);
+        String identifier = "nonexistent";
+        when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(identifier)).thenReturn(Optional.empty());
 
         // Act
-        Book updatedBook = bookService.updateBook(id, newDetails, filename);
-
-        // Print the result to console
-        System.out.println(updatedBook);
+        Page<Book> result = bookService.getBooksByUserIdentifier(identifier, 0, 10);
 
         // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    public void testUpdateBookByBookId_Success() throws IOException {
+
+        when(bookRepository.getReferenceById(1)).thenReturn(book);
+        when(updateBookByIdStrategy.update(book, newDetails, "cover.jpg")).thenReturn(newDetails);
+
+        // Act: Call the updateBook method
+        Book updatedBook = bookService.updateBook("1", "id", newDetails, "cover.jpg");
+
+
+        // Assert: Verify the updates and interactions
         assertEquals("New Title", updatedBook.getTitle());
         assertEquals("New Author", updatedBook.getAuthor());
-        assertEquals("New ISBN", updatedBook.getIsbn());
-        assertEquals("15.0", updatedBook.getPrice());
-        assertEquals(filename, updatedBook.getCoverImage());
+        verify(bookRepository, times(1)).getReferenceById(1);
+        verify(updateBookByIdStrategy, times(1)).update(book, newDetails, "cover.jpg");
     }
 
+
+
     @Test
-    public void testUpdateBook_NoFilename() throws IOException {
-        // Arrange
-        Integer id = 1;
-        Book existingBook = new Book(id, "Old Title", "Old Author", "Old ISBN", "5.0", null, null, null);
-        Book newDetails = new Book(null, "New Title", "New Author", "New ISBN", "15.0", null, null, null);
+    public void testUpdateBookByBookTitle_Success() throws IOException {
 
-        when(bookRepository.findById(id)).thenReturn(Optional.of(existingBook));
-        when(bookRepository.save(existingBook)).thenReturn(existingBook);
+        when(bookRepository.findBookByTitle("Title")).thenReturn(Optional.of(book));
+        when(updateBookByTitleStrategy.update(book, newDetails, "cover.jpg")).thenReturn(newDetails);
 
-        // Act
-        Book updatedBook = bookService.updateBook(id, newDetails, null);
+        // Act: Call the updateBook method
+        Book updatedBook = bookService.updateBook("Title", "title", newDetails, "cover.jpg");
 
-        // Print the result to console
-        System.out.println(updatedBook);
-
-        // Assert
+        // Assert: Verify the updates and interactions
         assertEquals("New Title", updatedBook.getTitle());
         assertEquals("New Author", updatedBook.getAuthor());
-        assertEquals("New ISBN", updatedBook.getIsbn());
-        assertEquals("15.0", updatedBook.getPrice());
-        assertNull(updatedBook.getCoverImage());
+        verify(bookRepository, times(1)).findBookByTitle("Title");
+        verify(updateBookByTitleStrategy, times(1)).update(book, newDetails, "cover.jpg");
     }
 
     @Test
-    public void testDeleteBookById() {
+    public void testUpdateBookByBookISBN_Success() throws IOException {
 
-        // Arrange
-        Integer id = 1;
-        Book book = new Book(id, "Title", "Author", "ISBN", "10.0", null, null, null);
-        when(bookRepository.findById(id)).thenReturn(Optional.of(book));
+        String bookISBN = "1234567890123";
+        String newDetailsISBN = "1234567890124";
+        book.setIsbn(bookISBN);
+        newDetails.setIsbn(newDetailsISBN);
 
-        // Act
-        bookService.deleteBookById(id);
+        when(bookRepository.findBookByIsbn(bookISBN)).thenReturn(Optional.of(book));
+        when(updateBookByISBNStrategy.update(book, newDetails, "cover.jpg")).thenReturn(newDetails);
 
-        // Verify
-        verify(bookRepository).delete(book);
+        // Act: Call the updateBook method
+        Book updatedBook = bookService.updateBook("1234567890123", "isbn", newDetails, "cover.jpg");
+
+        // Assert: Verify the updates and interactions
+        assertEquals("New Title", updatedBook.getTitle());
+        assertEquals("New Author", updatedBook.getAuthor());
+        assertEquals(newDetailsISBN, updatedBook.getIsbn());
+        verify(bookRepository, times(1)).findBookByIsbn(bookISBN);
+        verify(updateBookByISBNStrategy, times(1)).update(book, newDetails, "cover.jpg");
     }
 
     @Test
-    public void testDeleteBookById_BookNotFound() {
+    public void testUpdateBook_InvalidUpdateType() {
 
-        // Arrange
-
-        when(bookRepository.findById(1234)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        RuntimeException result = assertThrows(RuntimeException.class, () -> {
-            bookService.deleteBookById(1234);
+        assertThrows(IllegalArgumentException.class, () -> {
+            bookService.updateBook("1", "invalid_type", newDetails, "cover.jpg");
         });
-        assertEquals("Book not found", result.getMessage());
+
+        verify(bookRepository, never()).getReferenceById(anyInt());
+        verify(bookRepository, never()).findBookByTitle(anyString());
+        verify(bookRepository, never()).findBookByIsbn(anyString());
+    }
+
+    @Test
+    public void testUpdateBook_BookNotFound() throws IOException {
+
+        when(updateBookByIdStrategy.update(null, newDetails, "cover.jpg")).thenThrow(new EntityNotFoundException("Book not found"));
+
+        assertThrows(EntityNotFoundException.class, () -> {
+            bookService.updateBook("1", "id", newDetails, "cover.jpg");
+        });
+    }
+
+    @Test
+    public void testUpdateBook_NewDetailsNull() throws IOException {
+
+        // Arrange
+        when(bookRepository.getReferenceById(1)).thenReturn(book);
+        when(updateBookByIdStrategy.update(book, null, "cover.jpg")).thenThrow(new IllegalArgumentException("New details cannot be null"));
+        // Act and Assert
+        assertThrows(IllegalArgumentException.class, () -> {
+            bookService.updateBook("1", "id", null, "cover.jpg");
+        }, "New details cannot be null");
+    }
+
+    @Test
+    public void testDeleteBookById_Success() throws IOException {
+
+        // Arrange
+        when(bookRepository.getReferenceById(1)).thenReturn(book);
+
+        // Act
+        bookService.deleteBook("1", "id");
+
+        // Assert
+        verify(deleteBookByIdStrategy, times(1)).delete(book);
+    }
+
+    @Test
+    public void testDeleteBookById_BookNotFound_Failure() throws IOException {
+
+        // Arrange
+        when(bookRepository.getReferenceById(anyInt())).thenThrow(new EntityNotFoundException("Book not found"));
+
+        // Act and Assert
+        assertThrows(BookNotFoundException.class, () -> {
+            bookService.deleteBook("1", "id");
+        });
+    }
+
+    @Test
+    public void testDeleteBook_InvalidDeleteType() {
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            bookService.deleteBook("1", "invalid_type");
+        });
+
+        verify(bookRepository, never()).getReferenceById(anyInt());
+        verify(bookRepository, never()).findBookByTitle(anyString());
+        verify(bookRepository, never()).findBookByIsbn(anyString());
+    }
+
+    @Test
+    public void testDeleteBookByTitle_Success() throws IOException {
+
+        // Arrange
+        when(bookRepository.findBookByTitle("Title")).thenReturn(Optional.of(book));
+
+        // Act
+        bookService.deleteBook("Title", "title");
+
+        // Assert
+        verify(deleteBookByTitleStrategy, times(1)).delete(book);
+    }
+
+    @Test
+    public void testDeleteBookByISBN_Success() throws IOException {
+
+        // Arrange
+        when(bookRepository.findBookByIsbn("000000000000")).thenReturn(Optional.of(book));
+
+        // Act
+        bookService.deleteBook("000000000000", "isbn");
+
+        // Assert
+        verify(deleteBookByISBNStrategy, times(1)).delete(book);
+    }
+
+    @Test
+    void testAddBookToCurrentUser() {
+        // Arrange
+        User mockUser = new User();
+        mockUser.setUsername("testuser");
+
+        Book mockBook = new Book();
+        mockBook.setId(1);
+        mockBook.setTitle("Test Book");
+
+        Set<Book> books = new HashSet<>();
+        mockUser.setBooks(books);
+
+        mockCurrentUser(mockUser);
+
+        when(bookRepository.getReferenceById(1)).thenReturn(mockBook);
+
+        // Act
+        bookService.addBookToCurrentUser("1", "id");
+
+        // Assert
+        assertTrue(mockUser.getBooks().contains(mockBook), "The book should be added to the user's collection");
+        verify(userRepository).save(mockUser);
+    }
+
+    @Test
+    public void testAddBookToCurrentUser_BookAlreadyInCollection() {
+        // Arrange
+        User mockUser = new User();
+        mockUser.setUsername("testuser");
+
+        Book mockBook = new Book();
+        mockBook.setId(1);
+        mockBook.setTitle("Test Book");
+
+        Set<Book> books = new HashSet<>();
+        books.add(mockBook);
+        mockUser.setBooks(books);
+
+        mockCurrentUser(mockUser);
+
+        when(bookRepository.getReferenceById(1)).thenReturn(mockBook);
+
+        // Act
+        bookService.addBookToCurrentUser("1", "id");
+
+        // Assert
+        assertEquals(1, mockUser.getBooks().size(), "The user's collection should not have duplicate books");
+        assertTrue(mockUser.getBooks().contains(mockBook), "The user's collection should contain the book");
+        verify(userRepository).save(mockUser);
+    }
+
+    @Test
+    public void testAddBookToCurrentUser_UserNotAuthenticated() {
+        // Arrange
+        mockCurrentUser(null);
+
+        // Act and Assert
+        assertThrows(IllegalStateException.class, () -> {
+            bookService.addBookToCurrentUser("1", "id");
+        }, "Expected IllegalStateException to be thrown when no user is authenticated");
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    public void testDeleteBookFromCurrentUser_Success() {
+        // Arrange
+        User mockUser = new User();
+        mockUser.setUsername("testuser");
+
+        Book mockBook = new Book();
+        mockBook.setId(1);
+        mockBook.setTitle("Test Book");
+
+        Set<Book> books = new HashSet<>();
+        books.add(mockBook);
+        mockUser.setBooks(books);
+
+        mockCurrentUser(mockUser);
+
+        when(bookRepository.getReferenceById(1)).thenReturn(mockBook);
+
+        // Act
+        bookService.deleteBookFromCurrentUser("1", "id");
+
+        // Assert
+        assertFalse(mockUser.getBooks().contains(mockBook), "The book should be removed from the user's collection");
+        verify(userRepository).save(mockUser);
+    }
+
+    @Test
+    public void testDeleteBookFromCurrentUser_BookNotFoundInCollection() {
+        // Arrange
+        User mockUser = new User();
+        mockUser.setUsername("testuser");
+        mockUser.setBooks(new HashSet<>());
+
+        mockCurrentUser(mockUser);
+
+        Book mockBook = new Book();
+        mockBook.setId(1);
+        when(bookRepository.getReferenceById(1)).thenReturn(mockBook);
+
+        // Act and Assert
+        assertThrows(EntityNotFoundException.class, () -> {
+            bookService.deleteBookFromCurrentUser("1", "id");
+        }, "Expected EntityNotFoundException to be thrown when the book is not in the user's collection");
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
     public void testSaveAll() {
         // Arrange
         List<Book> books = Arrays.asList(
-                new Book(1, "Title1", "Author1", "ISBN1", "10.0", null, null, null),
-                new Book(2, "Title2", "Author2", "ISBN2", "20.0", null, null, null)
+                new Book("Title1", "Author1", "ISBN1", "10.0", null, null, null),
+                new Book("Title2", "Author2", "ISBN2", "20.0", null, null, null)
         );
 
         // Act
@@ -656,7 +971,12 @@ public class BookServiceTest {
         verify(bookRepository).saveAll(books);
     }
 
-    @AfterEach
+private UserDetails mockUserDetails(String username) {
+    return new org.springframework.security.core.userdetails.User(username, "password", new ArrayList<>());
+}
+
+
+@AfterEach
     public void tearDown() {
         SecurityContextHolder.clearContext();
     }
