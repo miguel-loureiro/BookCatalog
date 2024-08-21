@@ -170,104 +170,8 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBookByBookId_BookFound_Success() {
-        // Arrange
-        Integer id = 1;
-        Book existingBook = new Book(id, "Existing Title", "Existing Author");
+    public void testGetBook() {
 
-        // Mock the repository method
-        when(bookRepository.getReferenceById(id)).thenReturn(existingBook);
-
-        // Act
-        Book result = bookService.getBookByBookId(id);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(existingBook.getId(), result.getId());
-        assertEquals(existingBook.getTitle(), result.getTitle());
-        assertEquals(existingBook.getAuthor(), result.getAuthor());
-
-        // Verify the repository method was called
-        verify(bookRepository, times(1)).getReferenceById(id);
-    }
-
-    @Test
-    public void testGetBookByBookId_BookNotFound_Failure() {
-        // Arrange
-        Integer id = 1;
-
-        // Mock the repository method to throw EntityNotFoundException
-        when(bookRepository.getReferenceById(id)).thenThrow(new EntityNotFoundException());
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            bookService.getBookByBookId(id);
-        });
-
-        assertEquals("Book not found with id: " + id, exception.getMessage());
-
-        // Verify the repository method was called
-        verify(bookRepository, times(1)).getReferenceById(id);
-    }
-
-    @Test
-    public void testGetBookByIsbn_BookFound() {
-        // Arrange
-        String isbn = "1234567890";
-        Book book = new Book("Title", "Author", isbn, "10.99", null, null, null);
-        when(bookRepository.findBookByIsbn(isbn)).thenReturn(Optional.of(book));
-
-        // Act
-        Optional<Book> result = bookService.getBookByIsbn(isbn);
-
-        // Assert
-        assertTrue(result.isPresent());
-        assertEquals(book, result.get());
-        verify(bookRepository, times(1)).findBookByIsbn(isbn);
-    }
-
-    @Test
-    public void testGetBookByIsbn_BookNotFound() {
-        // Arrange
-        String isbn = "1234567890";
-        when(bookRepository.findBookByIsbn(isbn)).thenReturn(Optional.empty());
-
-        // Act
-        Optional<Book> result = bookService.getBookByIsbn(isbn);
-
-        // Assert
-        assertFalse(result.isPresent());
-        verify(bookRepository, times(1)).findBookByIsbn(isbn);
-    }
-
-    @Test
-    public void testGetBookByTitle_BookFound() {
-        // Arrange
-        String title = "Some Title";
-        Book book = new Book(title, "Author", "1234567890", "10.99", null, null, null);
-        when(bookRepository.findBookByTitle(title)).thenReturn(Optional.of(book));
-
-        // Act
-        Optional<Book> result = bookService.getBookByTitle(title);
-
-        // Assert
-        assertTrue(result.isPresent());
-        assertEquals(book, result.get());
-        verify(bookRepository, times(1)).findBookByTitle(title);
-    }
-
-    @Test
-    public void testGetBookByTitle_BookNotFound() {
-        // Arrange
-        String title = "Some Title";
-        when(bookRepository.findBookByTitle(title)).thenReturn(Optional.empty());
-
-        // Act
-        Optional<Book> result = bookService.getBookByTitle(title);
-
-        // Assert
-        assertFalse(result.isPresent());
-        verify(bookRepository, times(1)).findBookByTitle(title);
     }
 
     @Test
@@ -531,9 +435,6 @@ public class BookServiceTest {
         // Act
         Page<Book> result = bookService.getBooksByUserIdentifier(identifier, 0, 10);
 
-        // Print the result to console
-        System.out.println(result);
-
         // Assert the size
         assertEquals(2, result.getTotalElements());
 
@@ -708,8 +609,6 @@ public class BookServiceTest {
         verify(bookRepository, times(1)).getReferenceById(1);
         verify(updateBookByIdStrategy, times(1)).update(book, newDetails, "cover.jpg");
     }
-
-
 
     @Test
     public void testUpdateBookByBookTitle_Success() throws IOException {

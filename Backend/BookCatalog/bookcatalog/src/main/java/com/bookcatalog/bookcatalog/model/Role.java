@@ -7,8 +7,20 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 public enum Role {
 
-    SUPER,
-    ADMIN,
-    READER,
-    GUEST;
+    SUPER(4),
+    ADMIN(3),
+    READER(2),
+    GUEST(1);
+
+    private final int rank;
+
+    Role(int rank) {
+
+        this.rank = rank;
+    }
+
+    public int getRank() {
+
+        return this.rank;
+    }
 }

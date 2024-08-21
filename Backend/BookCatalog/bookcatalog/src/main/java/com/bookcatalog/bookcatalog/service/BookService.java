@@ -88,25 +88,25 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    public Book getBookByBookId(Integer id) {
+    public Book getBook(String identifier, String type) {
 
-        try {
+        switch (type) {
 
-            return bookRepository.getReferenceById(id);
-        } catch (EntityNotFoundException e) {
-
-            throw new BookNotFoundException("Book not found with id: " + id, e);
+            case "id":
+                try {
+                    return bookRepository.getReferenceById(Integer.parseInt(identifier));
+                } catch (EntityNotFoundException e) {
+                    throw new BookNotFoundException("Book not found with id: " + identifier, e);
+                }
+            case "title":
+                return bookRepository.findBookByTitle(identifier)
+                        .orElseThrow(() -> new EntityNotFoundException("Book with title " + identifier + " not found"));
+            case "isbn":
+                return bookRepository.findBookByIsbn(identifier)
+                        .orElseThrow(() -> new EntityNotFoundException("Book with ISBN " + identifier + " not found"));
+            default:
+                throw new IllegalArgumentException("Invalid identifier type: " + type);
         }
-    }
-
-    public Optional<Book> getBookByIsbn(String isbn) {
-
-        return bookRepository.findBookByIsbn(isbn);
-    }
-
-    public Optional<Book> getBookByTitle(String title) {
-
-        return bookRepository.findBookByTitle(title);
     }
 
     public Page<Book> getBooksByAuthor(String author, int page, int size) {
@@ -114,7 +114,6 @@ public class BookService {
         Pageable pageable = PageRequest.of(page, size);
         return bookRepository.findBooksByAuthor(author, pageable);
     }
-
 
     public ResponseEntity<Page<Book>> getAllBooks(
             @RequestParam(name = "page", defaultValue = "0") int page,
@@ -249,13 +248,13 @@ public class BookService {
 
     public void deleteBook(String identifier, String type) throws IOException {
 
-        DeleteStrategy strategy = deleteStrategies.get(type);
+        DeleteStrategy<Book> strategy = deleteStrategies.get(type);
 
         if (strategy == null) {
-            throw new IllegalArgumentException("Invalid update type: " + type);
+            throw new IllegalArgumentException("Invalid delete type: " + type);
         }
 
-        Book bookToDelete = getBookByIdentifier(identifier, type);
+        Book bookToDelete = getBook(identifier, type);
 
         strategy.delete(bookToDelete);
     }
@@ -267,7 +266,7 @@ public class BookService {
 
     public void addBookToCurrentUser(String identifier, String type) {
 
-        Book book = getBookByIdentifier(identifier, type);
+        Book book = getBook(identifier, type);
 
         User currentUser = getCurrentUser();
 
@@ -278,7 +277,7 @@ public class BookService {
 
     public void deleteBookFromCurrentUser(String identifier, String type) {
 
-        Book book = getBookByIdentifier(identifier, type);
+        Book book = getBook(identifier, type);
 
         User currentUser = getCurrentUser();
 
@@ -310,26 +309,5 @@ public class BookService {
         }
 
         throw new IllegalStateException("Principal is not an instance of UserDetails");
-    }
-
-    private Book getBookByIdentifier(String identifier, String type) {
-
-        switch (type) {
-
-            case "id":
-                try {
-                      return bookRepository.getReferenceById(Integer.parseInt(identifier));
-                } catch (EntityNotFoundException e) {
-                    throw new BookNotFoundException("Book not found with id: " + identifier, e);
-                }
-            case "title":
-                return bookRepository.findBookByTitle(identifier)
-                        .orElseThrow(() -> new EntityNotFoundException("Book with title " + identifier + " not found"));
-            case "isbn":
-                return bookRepository.findBookByIsbn(identifier)
-                        .orElseThrow(() -> new EntityNotFoundException("Book with ISBN " + identifier + " not found"));
-            default:
-                throw new IllegalArgumentException("Invalid identifier type: " + type);
-        }
     }
 }

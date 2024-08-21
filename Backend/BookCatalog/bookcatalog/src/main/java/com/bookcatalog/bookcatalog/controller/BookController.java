@@ -29,14 +29,14 @@ public class BookController {
 
     @Autowired
     private BookService bookService;
-
+/*
     @GetMapping("/{id}")
     public ResponseEntity<Book> getBookById(@PathVariable Integer id) {
 
            Book book = bookService.getBookByBookId(id);
            return ResponseEntity.ok(book);
     }
-
+*/
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Page<Book>> getAllBooks(

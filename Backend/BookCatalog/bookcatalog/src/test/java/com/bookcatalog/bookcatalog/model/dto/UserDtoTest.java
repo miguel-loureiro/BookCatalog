@@ -47,7 +47,10 @@ class UserDtoTest {
     @Test
     void getBooks() {
 
-        List<Book> mockedBooks = Arrays.asList(mockBook1, mockBook2);
+        Set<Book> mockedBooks = new HashSet<>();
+        mockedBooks.add(mockBook1);
+        mockedBooks.add(mockBook2);
+
         mockUserDto.setBooks(mockedBooks);
         assertEquals(mockedBooks, mockUserDto.getBooks());
     }
@@ -73,7 +76,10 @@ class UserDtoTest {
     @Test
     void setBooks() {
 
-        List<Book> mockedBooks = Arrays.asList(mockBook1, mockBook2);
+        Set<Book> mockedBooks = new HashSet<>();
+        mockedBooks.add(mockBook1);
+        mockedBooks.add(mockBook2);
+
         mockUserDto.setBooks(mockedBooks);
         assertEquals(mockedBooks, mockUserDto.getBooks());
     }

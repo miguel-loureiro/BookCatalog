@@ -154,29 +154,6 @@ public class BookControllerTest {
     }
 
     @Test
-    public void testGetBookById_Success() {
-
-        Book book = new Book();
-        book.setId(1);
-        when(bookService.getBookByBookId(1)).thenReturn(book);
-
-        ResponseEntity<Book> response = bookController.getBookById(1);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(book, response.getBody());
-    }
-
-    @Test
-    public void testGetBookById_NotFound() {
-
-        when(bookService.getBookByBookId(1)).thenThrow(new BookNotFoundException("Book not found with id: " + "1", new EntityNotFoundException()));
-
-        assertThrows(BookNotFoundException.class, () -> {
-            bookController.getBookById(1);
-        });
-    }
-
-    @Test
     public void testGetAllBooks_NullResponse() throws IOException {
         // Arrange
         int page = 0;

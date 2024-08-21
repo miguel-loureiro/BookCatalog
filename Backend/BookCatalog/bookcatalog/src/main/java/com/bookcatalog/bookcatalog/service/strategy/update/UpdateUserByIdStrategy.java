@@ -32,7 +32,6 @@ public class UpdateUserByIdStrategy implements UpdateStrategy<User> {
         user.setRole(newDetails.getRole());
         user.setBooks(newDetails.getBooks());
 
-
         try {
             return userRepository.save(user);
         } catch (Exception e) {

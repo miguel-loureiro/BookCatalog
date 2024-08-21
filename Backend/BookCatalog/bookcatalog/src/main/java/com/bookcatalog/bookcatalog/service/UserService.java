@@ -1,13 +1,18 @@
 package com.bookcatalog.bookcatalog.service;
 
-import com.bookcatalog.bookcatalog.model.Book;
+import com.bookcatalog.bookcatalog.exceptions.UserNotFoundException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.*;
-import com.bookcatalog.bookcatalog.repository.BookRepository;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
+import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,9 +20,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -25,318 +30,248 @@ public class UserService {
     @Autowired
     private final UserRepository userRepository;
 
-    @Autowired
-    private final BookRepository bookRepository;
-
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, BookRepository bookRepository, PasswordEncoder passwordEncoder) {
+    private final Map<String, UpdateStrategy<User>> updateStrategiesMap;
+    private final Map<String, DeleteStrategy<User>> deleteStrategiesMap;
+
+    @Autowired
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       Map<String, UpdateStrategy<User>> updateStrategiesMap, Map<String, DeleteStrategy<User>> deleteStrategiesMap) {
+
         this.userRepository = userRepository;
-        this.bookRepository = bookRepository;
         this.passwordEncoder = passwordEncoder;
+        this.updateStrategiesMap = updateStrategiesMap;
+        this.deleteStrategiesMap = deleteStrategiesMap;
     }
 
-    public List<UserShortDto> getUsersShortList() {
+    public ResponseEntity<Page<UserDto>> getAllUsers(int page, int size) {
 
-        List<User> users = (List<User>) userRepository.findAll();
-        return users.stream()
-                .filter(user -> user.getRole() != Role.SUPER)
-                .map(user -> new UserShortDto(user.getUsername(), user.getEmail(), user.getRole()))
-                .collect(Collectors.toList());
+        Sort usernameSort = Sort.by("username");
+        Pageable paging = PageRequest.of(page, size, usernameSort.ascending());
+
+        Page<User> usersPage = userRepository.findAll(paging);
+        Page<UserDto> userDtosPage = usersPage.map(UserDto::new);
+
+        return ResponseEntity.ok(userDtosPage);
     }
 
-    public User createAdministrator(RegisterUserDto input) {
+    /*
+    Reasons for Direct Mapping from RegisterUserDto to User:
+Security Concerns: Since passwords are sensitive data, handling them as little as possible is a good practice. By directly mapping from RegisterUserDto to User, you ensure that the password is only processed when necessary—during the creation of the User entity—and then immediately encoded. Introducing a UserDto in between could increase the risk of mishandling or inadvertently exposing the password.
 
-        var user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), Role.ADMIN);
+Single Responsibility: The RegisterUserDto is specifically designed to capture the input needed for user registration, including the password. This aligns well with creating a User entity, which requires the password. The UserDto, on the other hand, is meant to encapsulate user data without sensitive information like the password. Thus, involving UserDto in the registration process could violate the single responsibility principle by forcing it to handle data it’s not designed for.
 
-        return userRepository.save(user);
+Avoiding Unnecessary Complexity: Mapping directly from RegisterUserDto to User keeps the code simple and clear. Introducing an extra step where RegisterUserDto is first converted to UserDto and then to User would add unnecessary complexity without significant benefits. It could also lead to potential issues, such as forgetting to encode the password properly during the conversion.
+
+Performance: Directly converting RegisterUserDto to User avoids an extra transformation step, which might be negligible in terms of performance but still contributes to overall efficiency.
+     */
+    public UserDto createAdministrator(RegisterUserDto input) {
+
+        User user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), Role.ADMIN);
+        User savedUser = userRepository.save(user);
+
+        return new UserDto(savedUser);
     }
 
-    public ResponseEntity<Void> deleteAdministratorById(Integer id) {
+    public ResponseEntity<Void> deleteUser(String identifier, String type) throws IOException {
 
-        Optional<User> userOptional = userRepository.findById(id);
+        try {
+            DeleteStrategy<User> strategy = deleteStrategiesMap.get(type);
 
-        if(userOptional.isPresent()) {
+            if (strategy == null) {
+                return ResponseEntity.badRequest().build();
+            }
 
-            User user = userOptional.get();
+            User currentUser = getCurrentUser();
+            User userToDelete = getUserByIdentifier(identifier, type);
 
-            if (user.getRole() == Role.ADMIN ) {
-
-                userRepository.deleteById(id);
-
+            if (hasPermissionToDelete(currentUser, userToDelete)) {
+                strategy.delete(userToDelete);
                 return ResponseEntity.ok().build();
             } else {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
-        } else {
+        } catch (UserNotFoundException e) {
             return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    public ResponseEntity<Void> deleteAdministratorByUsernameOrEmail(String identifier) {
+    public ResponseEntity<Void> deleteAdministrator(String identifier, String type) throws IOException {
 
-        Optional<User> userOptional = userRepository.findByUsername(identifier);
+        try {
 
+            DeleteStrategy<User> strategy = deleteStrategiesMap.get(type);
+
+            if (strategy == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            User currentUser = getCurrentUser();
+            User adminToDelete = getUserByIdentifier(identifier, type);
+
+            if (adminToDelete.getRole() != Role.ADMIN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            if (hasPermissionToDelete(currentUser, adminToDelete)) {
+
+                strategy.delete(adminToDelete);
+                return ResponseEntity.ok().build();
+            } else {
+
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    public ResponseEntity<Void> updateUser(String identifier, String type, UserDto input) throws IOException {
+
+        try {
+            UpdateStrategy<User> strategy = updateStrategiesMap.get(type);
+
+            if (strategy == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            User currentUser = getCurrentUser();
+            User userToUpdate = getUserByIdentifier(identifier, type);
+
+            if (hasPermissionToUpdate(currentUser, userToUpdate)) {
+
+                User newDetails = new User(input);
+                strategy.update(userToUpdate, newDetails, null);
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+        } catch (UserNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    public ResponseEntity<Void> updateAdministrator(String identifier, String type, UserDto input) throws IOException {
+
+        try {
+
+            UpdateStrategy<User> strategy = updateStrategiesMap.get(type);
+
+            if (strategy == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            User currentUser = getCurrentUser();
+            User adminToUpdate = getUserByIdentifier(identifier, type);
+
+            if (adminToUpdate.getRole() != Role.ADMIN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            if (hasPermissionToUpdate(currentUser, adminToUpdate)) {
+
+                User newDetails = new User(input);
+                strategy.update(adminToUpdate, newDetails, null);
+                return ResponseEntity.ok().build();
+            } else {
+
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+        } catch (UserNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    public ResponseEntity<Void> changeUserPassword(String username, String newPassword) {
+
+        User currentUser = getCurrentUser();
+
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (!currentUser.getUsername().equals(username)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Optional<User> userOptional = userRepository.findByUsername(username);
         if (userOptional.isEmpty()) {
-            userOptional = userRepository.findByEmail(identifier);
-        }
-        if (userOptional.isPresent()) {
 
-            User user = userOptional.get();
-
-            if (user.getRole() == Role.ADMIN) {
-
-                userRepository.deleteById(user.getId());
-                return ResponseEntity.ok().build();
-            } else {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-        } else {
             return ResponseEntity.notFound().build();
-        }
-    }
-
-    public Optional<UserDto> getUserById(Integer id) {
-
-        UserDto currentUser = getCurrentUser();
-
-        if (currentUser == null || (currentUser.getRole() != Role.READER && currentUser.getRole() != Role.GUEST)) {
-            return Optional.empty();
-        }
-
-        Optional<User> foundUser = userRepository.findById(id);
-
-        if (foundUser.isPresent()) {
-            User foundUserEntity = foundUser.get();
-            if ((currentUser.getRole() == Role.READER || currentUser.getRole() == Role.GUEST) &&
-                    (foundUserEntity.getRole() == Role.ADMIN || foundUserEntity.getRole() == Role.SUPER)) {
-                return Optional.empty();
-            }
-            return foundUser.map(this::fromUserToUserDto);
-        }
-        return Optional.empty();
-    }
-
-    public Optional<UserDto> getUserByUsernameOrEmail(String identifier) {
-
-        if (identifier != null) {
-            Optional<User> userOptional = userRepository.findByUsername(identifier);
-            if (userOptional.isEmpty()) {
-                userOptional = userRepository.findByEmail(identifier);
-            }
-            if (userOptional.isPresent()) {
-
-                UserDto currentUser = getCurrentUser();
-
-                if (currentUser != null && (currentUser.getRole() == Role.READER || currentUser.getRole() == Role.GUEST)) {
-
-                    if (userOptional.get().getRole() == Role.ADMIN || userOptional.get().getRole() == Role.SUPER) {
-                        return Optional.empty(); // Don't return user if they have a restricted role
-                    }
-                }
-                return userOptional.map(this::fromUserToUserDto);
-            }
-        }
-        return Optional.empty();
-    }
-
-    public ResponseEntity<Void> deleteUserById(Integer id) {
-
-        Optional<User> userOptional = userRepository.findById(id);
-        UserDto currentUser = getCurrentUser();
-
-        if (userOptional.isEmpty() || currentUser == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
         User user = userOptional.get();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
 
-        if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        if (user.getRole() != Role.READER && user.getRole() != Role.GUEST) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        userRepository.deleteById(id);
         return ResponseEntity.ok().build();
     }
 
+    public User getUserByIdentifier(String identifier, String type) {
 
-    public ResponseEntity<Void> deleteUserByUsernameOrEmail(String identifier) {
-
-        Optional<User> userOptional = userRepository.findByUsername(identifier);
-        if (userOptional.isEmpty()) {
-            userOptional = userRepository.findByEmail(identifier);
-        }
-
-        if (userOptional.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        UserDto currentUser = getCurrentUser();
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
-
-        User user = userOptional.get();
-
-        if ((currentUser.getRole() == Role.READER || currentUser.getRole() == Role.GUEST)
-                && (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        if ((currentUser.getRole() == Role.GUEST && user.getRole() == Role.READER) ||
-                (currentUser.getRole() == Role.READER && user.getRole() == Role.GUEST)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.SUPER ||
-                currentUser.getRole() == user.getRole()) {
-            userRepository.deleteById(user.getId());
-            return ResponseEntity.ok().build();
-        }
-
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-    }
-
-    public ResponseEntity<Object> updateUserById(Integer id, UserShortDto input) {
-
-        UserDto currentUser = getCurrentUser();
-
-        return userRepository.findById(id).map(user -> {
-
-            if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (user.getRole() != Role.READER && user.getRole() != Role.GUEST) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (input.getRole() != null) {
-                if (input.getRole() == Role.SUPER || input.getRole() == Role.ADMIN) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        switch (type) {
+            case "id":
+                try {
+                    return userRepository.getReferenceById(Integer.parseInt(identifier));
+                } catch (EntityNotFoundException | NumberFormatException e) {
+                    throw new UserNotFoundException("User not found with id: " + identifier, e);
                 }
-                user.setRole(input.getRole());
-            }
 
-            user.setUsername(input.getUsername());
-            user.setEmail(input.getEmail());
-            userRepository.save(user);
+            case "username":
+                return userRepository.findByUsername(identifier)
+                        .orElseThrow(() -> new UserNotFoundException("User with username " + identifier + " not found", null));
 
-            return ResponseEntity.ok().build();
-        }).orElseGet(() -> ResponseEntity.notFound().build());
-    }
+            case "email":
+                return userRepository.findByEmail(identifier)
+                        .orElseThrow(() -> new UserNotFoundException("User with email " + identifier + " not found", null));
 
-    public ResponseEntity<Object> updateUserByUsernameOrEmail(String identifier, UserShortDto input) {
-
-        Optional<User> userOptional = userRepository.findByUsername(identifier);
-        if (userOptional.isEmpty()) {
-            userOptional = userRepository.findByEmail(identifier);
+            default:
+                throw new IllegalArgumentException("Invalid identifier type: " + type);
         }
-
-        UserDto currentUser = getCurrentUser();
-
-        return userOptional.map(user -> {
-            if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (user.getRole() != Role.READER && user.getRole() != Role.GUEST) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (input.getRole() != null) {
-                if (input.getRole() == Role.SUPER || input.getRole() == Role.ADMIN) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-                }
-                user.setRole(input.getRole());
-            }
-
-            user.setUsername(input.getUsername());
-            user.setEmail(input.getEmail());
-            userRepository.save(user);
-
-            return ResponseEntity.ok().build();
-        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    public ResponseEntity<Object> updateAdministratorById(Integer id, UserShortDto input) {
-
-        return userRepository.findById(id)
-                .map(user -> {
-
-                    if (user.getRole() != Role.ADMIN) {
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-                    }
-
-                    if (input.getRole() != null && input.getRole() == Role.SUPER) {
-
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-                    }
-
-                    if (input.getRole() != null) {
-
-                        user.setRole(input.getRole());
-                    }
-
-                    user.setUsername(input.getUsername());
-                    user.setEmail(input.getEmail());
-                    userRepository.save(user);
-                    return ResponseEntity.ok().build();
-
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    public ResponseEntity<Object> updateAdministratorByUsernameOrEmail(String identifier, UserShortDto input) {
-
-        Optional<User> userOptional = userRepository.findByUsername(identifier);
-
-        if (userOptional.isEmpty()) {
-            userOptional = userRepository.findByEmail(identifier);
-        }
-
-        return userOptional.map(user -> {
-            if (user.getRole() != Role.ADMIN) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (input.getRole() != null && input.getRole() == Role.SUPER) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (input.getRole() != null) {
-                user.setRole(input.getRole());
-            }
-
-            user.setUsername(input.getUsername());
-            user.setEmail(input.getEmail());
-            userRepository.save(user);
-            return ResponseEntity.ok().build();
-        }).orElse(ResponseEntity.notFound().build());
-    }
-
-    public UserDto getCurrentUser() {
+    public User getCurrentUser() {
 
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         if (principal instanceof UserDetails) {
+
             String username = ((UserDetails) principal).getUsername();
-            return userRepository.findByUsername(username).map(this::fromUserToUserDto).orElse(null);
+            return userRepository.findByUsername(username).orElse(null);
         }
+
         return null;
     }
 
-    UserDto fromUserToUserDto(User user) {
 
-        UserDto userDto = new UserDto();
-        userDto.setUsername(user.getUsername());
-        userDto.setEmail(user.getEmail());
-        userDto.setRole(user.getRole());
+    private boolean hasPermissionToDelete(User currentUser, User targetUser) {
 
-        return userDto;
+        boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
+        boolean hasHigherRank = currentUser.getRole().getRank() > targetUser.getRole().getRank();
+
+        return isSameUser || hasHigherRank;
+    }
+
+    private boolean hasPermissionToUpdate(User currentUser, User targetUser) {
+
+        boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
+        boolean hasHigherRank = currentUser.getRole().getRank() > targetUser.getRole().getRank();
+
+        return isSameUser || hasHigherRank;
     }
 }
