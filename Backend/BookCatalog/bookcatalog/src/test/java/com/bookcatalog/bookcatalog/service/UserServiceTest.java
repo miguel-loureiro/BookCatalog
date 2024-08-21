@@ -675,8 +675,6 @@ class UserServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
-    // ----------------------
-
     @Test
     void testUpdateAdministrator_Success() throws IOException {
 
@@ -767,10 +765,6 @@ class UserServiceTest {
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
-
-
-    // -------------------------
-
 
     @Test
     void testChangeUserPassword_Success() {

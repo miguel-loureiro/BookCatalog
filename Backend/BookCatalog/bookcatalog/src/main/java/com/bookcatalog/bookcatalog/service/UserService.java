@@ -189,10 +189,13 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
         } catch (UserNotFoundException e) {
+
             return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
+
             return ResponseEntity.badRequest().build();
         } catch (IOException e) {
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -225,6 +228,7 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
     public User getUserByIdentifier(String identifier, String type) {
 
         switch (type) {
+
             case "id":
                 try {
                     return userRepository.getReferenceById(Integer.parseInt(identifier));
