@@ -7,7 +7,6 @@ import jakarta.persistence.EntityNotFoundException;
 import java.io.IOException;
 import java.util.Optional;
 
-
 public class DeleteBookByTitleStrategy implements  DeleteStrategy<Book> {
 
     private final BookRepository bookRepository;

@@ -3,7 +3,6 @@ package com.bookcatalog.bookcatalog.service.strategy.update;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
-
 import java.io.IOException;
 import java.util.Optional;
 

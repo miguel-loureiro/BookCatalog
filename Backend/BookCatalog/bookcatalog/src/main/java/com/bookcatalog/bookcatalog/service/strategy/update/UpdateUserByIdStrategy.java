@@ -5,7 +5,6 @@ import com.bookcatalog.bookcatalog.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 import java.io.IOException;
-import java.util.Optional;
 
 public class UpdateUserByIdStrategy implements UpdateStrategy<User> {
 

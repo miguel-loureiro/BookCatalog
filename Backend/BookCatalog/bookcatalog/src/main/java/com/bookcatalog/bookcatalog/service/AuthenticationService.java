@@ -30,12 +30,17 @@ public class AuthenticationService {
 
     public User signup(RegisterUserDto input) {
 
+        validateInput(input);
+
         if (input.getRole() == Role.READER || input.getRole() == Role.GUEST) {
+
             User user = new User();
             user.setUsername(input.getUsername());
             user.setEmail(input.getEmail());
             user.setPassword(passwordEncoder.encode(input.getPassword()));
             user.setRole(input.getRole());
+
+            validateUser(user);
 
             return userRepository.save(user);
         } else {
@@ -44,6 +49,7 @@ public class AuthenticationService {
     }
 
     public User authenticate(LoginUserDto input) {
+
         String identifier = input.getUsername() != null && !input.getUsername().isEmpty() ? input.getUsername() : input.getEmail();
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(identifier, input.getPassword());
 
@@ -56,6 +62,7 @@ public class AuthenticationService {
         User authenticatedUser = user.orElseThrow(() -> new UsernameNotFoundException("User not found with identifier: " + identifier));
 
         if (authenticatedUser.getRole() == Role.GUEST) {
+
             throw new InvalidUserRoleException("Cannot log in with role GUEST via this endpoint");
         }
 
@@ -68,5 +75,21 @@ public class AuthenticationService {
         return optionalUser.filter(user -> user.getRole() == Role.GUEST)
                 .filter(user -> passwordEncoder.matches(loginUserDto.getPassword(), user.getPassword()))
                 .orElseThrow(() -> new UsernameNotFoundException("Guest user not found or invalid credentials"));
+    }
+
+    private void validateInput(RegisterUserDto input) {
+
+        if (input == null || input.getUsername() == null || input.getEmail() == null || input.getPassword() == null || input.getRole() == null) {
+
+            throw new IllegalArgumentException("All fields are required for registration.");
+        }
+    }
+
+    private void validateUser(User user) {
+
+        if (user == null || user.getUsername() == null || user.getEmail() == null || user.getPassword() == null || user.getRole() == null) {
+
+            throw new IllegalStateException("User fields are not properly set.");
+        }
     }
 }
