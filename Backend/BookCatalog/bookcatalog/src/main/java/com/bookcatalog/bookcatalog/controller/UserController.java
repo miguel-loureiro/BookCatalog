@@ -33,7 +33,19 @@ public class UserController {
         this.userService = userService;
         this.authenticationService = authenticationService;
     }
+/*
+    @PostMapping("/signup")
+    public ResponseEntity<String> createUserNonAdmin(@RequestBody RegisterUserDto input)  {
 
+        if (input.getRole() != Role.READER && input.getRole() != Role.GUEST) {
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid role. Only READER or GUEST are allowed");
+        }
+
+        boolean userExistsInDatabase =
+        return ResponseEntity.ok(createdUser);
+    }
+*/
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Page<UserDto>> allUsers()  {
@@ -60,13 +72,7 @@ public class UserController {
         }
     }
 
-    @PostMapping("/new")
-    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<UserDto> createUserNonAdmin(@RequestBody RegisterUserDto registerUserDto) throws IOException {
-        UserDto createdUser = userService.createUserNonAdmin(registerUserDto);
 
-        return ResponseEntity.ok(createdUser);
-    }
 
     @DeleteMapping("/{type}/{identifier}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")

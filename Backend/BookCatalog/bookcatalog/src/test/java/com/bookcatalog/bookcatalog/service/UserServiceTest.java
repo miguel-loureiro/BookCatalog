@@ -374,63 +374,103 @@ class UserServiceTest {
     }
 
     @Test
-    void createUserNonAdmin_ValidInput_ReturnsUserDto() {
-
+    void createUserNonAdmin_InvalidRole_ReturnsForbidden() {
         // Arrange
-        when(mockRegisterUserDto.getUsername()).thenReturn("guest");
-        when(mockRegisterUserDto.getEmail()).thenReturn("guest@example.com");
-        when(mockRegisterUserDto.getPassword()).thenReturn("securePassword");
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.ADMIN);
 
-        when(passwordEncoder.encode("securePassword")).thenReturn("encodedPassword");
-
-        when(userRepository.save(any(User.class))).thenReturn(savedUser);
-
-        when(savedUser.getUsername()).thenReturn("guest");
-        when(savedUser.getEmail()).thenReturn("guest@example.com");
-        when(savedUser.getRole()).thenReturn(Role.GUEST);
-
-        UserDto result = userService.createUserNonAdmin(mockRegisterUserDto);
+        // Act
+        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
 
         // Assert
-        assertNotNull(result);
-        assertEquals("guest", result.getUsername());
-        assertEquals("guest@example.com", result.getEmail());
-        assertEquals(Role.GUEST, result.getRole());
-        verify(mockRegisterUserDto).getUsername();
-        verify(mockRegisterUserDto).getEmail();
-        verify(mockRegisterUserDto).getPassword();
-        verify(passwordEncoder).encode("securePassword");
-        verify(userRepository).save(any(User.class));
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNull(response.getBody());
     }
 
     @Test
-    void createAdministrator_ValidInput_ReturnsUserDto() {
-
+    void createUserNonAdmin_UserAlreadyExists_ReturnsForbidden() {
         // Arrange
-        when(mockRegisterUserDto.getUsername()).thenReturn("admin");
-        when(mockRegisterUserDto.getEmail()).thenReturn("admin@example.com");
-        when(mockRegisterUserDto.getPassword()).thenReturn("securePassword");
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
+        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.of(new User()));
+        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
 
-        when(passwordEncoder.encode("securePassword")).thenReturn("encodedPassword");
-
-        when(userRepository.save(any(User.class))).thenReturn(savedUser);
-
-        when(savedUser.getUsername()).thenReturn("admin");
-        when(savedUser.getEmail()).thenReturn("admin@example.com");
-        when(savedUser.getRole()).thenReturn(Role.ADMIN);
-
-        UserDto result = userService.createAdministrator(mockRegisterUserDto);
+        // Act
+        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
 
         // Assert
-        assertNotNull(result);
-        assertEquals("admin", result.getUsername());
-        assertEquals("admin@example.com", result.getEmail());
-        assertEquals(Role.ADMIN, result.getRole());
-        verify(mockRegisterUserDto).getUsername();
-        verify(mockRegisterUserDto).getEmail();
-        verify(mockRegisterUserDto).getPassword();
-        verify(passwordEncoder).encode("securePassword");
-        verify(userRepository).save(any(User.class));
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNull(response.getBody());
+        assertEquals("User already in the database", response.getHeaders().getFirst("Error-Message"));
+    }
+
+    @Test
+    void createUserNonAdmin_UserDoesNotExist_CreatesAndReturnsUser() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
+        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
+        User savedUser = new User(input.getUsername(), input.getEmail(), "encodedPassword", Role.READER);
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        // Act
+        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
+
+        // Assert
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(input.getUsername(), response.getBody().getUsername());
+        assertEquals(input.getEmail(), response.getBody().getEmail());
+        assertEquals(input.getRole(), response.getBody().getRole());
+    }
+
+    @Test
+    void createAdministrator_InvalidRole_ReturnsForbidden() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
+
+        // Act
+        ResponseEntity<UserDto> response = userService.createAdministrator(input);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNull(response.getBody());
+    }
+
+    @Test
+    void createAdministrator_UserAlreadyExists_ReturnsForbidden() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.ADMIN);
+        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.of(new User()));
+        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
+
+        // Act
+        ResponseEntity<UserDto> response = userService.createAdministrator(input);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNull(response.getBody());
+        assertEquals("User already in the database", response.getHeaders().getFirst("Error-Message"));
+    }
+
+    @Test
+    void createAdministrator_UserDoesNotExist_CreatesAndReturnsUser() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.ADMIN);
+        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
+        User savedUser = new User(input.getUsername(), input.getEmail(), "encodedPassword", Role.ADMIN);
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        // Act
+        ResponseEntity<UserDto> response = userService.createAdministrator(input);
+
+        // Assert
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(input.getUsername(), response.getBody().getUsername());
+        assertEquals(input.getEmail(), response.getBody().getEmail());
+        assertEquals(input.getRole(), response.getBody().getRole());
     }
 
     @Test

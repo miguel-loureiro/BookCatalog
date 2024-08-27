@@ -58,7 +58,7 @@ public class UserService {
 
     /*
     Reasons for Direct Mapping from RegisterUserDto to User:
-    
+
 Security Concerns: Since passwords are sensitive data, handling them as little as possible is a good practice. By directly mapping from RegisterUserDto to User, you ensure that the password is only processed when necessary—during the creation of the User entity—and then immediately encoded. Introducing a UserDto in between could increase the risk of mishandling or inadvertently exposing the password.
 
 Single Responsibility: The RegisterUserDto is specifically designed to capture the input needed for user registration, including the password. This aligns well with creating a User entity, which requires the password. The UserDto, on the other hand, is meant to encapsulate user data without sensitive information like the password. Thus, involving UserDto in the registration process could violate the single responsibility principle by forcing it to handle data it’s not designed for.
@@ -68,20 +68,56 @@ Avoiding Unnecessary Complexity: Mapping directly from RegisterUserDto to User k
 Performance: Directly converting RegisterUserDto to User avoids an extra transformation step, which might be negligible in terms of performance but still contributes to overall efficiency.
      */
 
-    public UserDto createUserNonAdmin(RegisterUserDto input) {
+    public ResponseEntity<UserDto> createUserNonAdmin(RegisterUserDto input) {
 
-        User user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), input.getRole());
+        if (input.getRole() != Role.READER && input.getRole() != Role.GUEST) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(null);
+        }
+
+        boolean userExists = userRepository.findByEmail(input.getEmail()).isPresent() ||
+                userRepository.findByUsername(input.getUsername()).isPresent();
+
+        if (userExists) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .header("Error-Message", "User already in the database")
+                    .body(null);
+        }
+
+        User user = new User(input.getUsername(), input.getEmail(),
+                passwordEncoder.encode(input.getPassword()),
+                input.getRole());
+
         User savedUser = userRepository.save(user);
 
-        return new UserDto(savedUser);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new UserDto(savedUser));
     }
 
-    public UserDto createAdministrator(RegisterUserDto input) {
+    public ResponseEntity<UserDto> createAdministrator(RegisterUserDto input) {
 
-        User user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), Role.ADMIN);
+        if (input.getRole() != Role.ADMIN ) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(null);
+        }
+
+        boolean userExists = userRepository.findByEmail(input.getEmail()).isPresent() ||
+                userRepository.findByUsername(input.getUsername()).isPresent();
+
+        if (userExists) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .header("Error-Message", "User already in the database")
+                    .body(null);
+        }
+
+        User user = new User(input.getUsername(), input.getEmail(),
+                passwordEncoder.encode(input.getPassword()),
+                input.getRole());
+
         User savedUser = userRepository.save(user);
 
-        return new UserDto(savedUser);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new UserDto(savedUser));
     }
 
     public ResponseEntity<Void> deleteUser(String identifier, String type) throws IOException {

@@ -98,16 +98,58 @@ class AdminControllerTest {
     void testCreateAdministrator_Success() throws IOException {
         // Arrange
         RegisterUserDto registerUserDto = new RegisterUserDto();
+        registerUserDto.setRole(Role.ADMIN);
         UserDto createdAdmin = new UserDto();
 
-        when(userService.createAdministrator(any(RegisterUserDto.class))).thenReturn(createdAdmin);
+        when(userService.createAdministrator(any(RegisterUserDto.class))).thenReturn(ResponseEntity.status(HttpStatus.CREATED).body(createdAdmin));
 
         // Act
         ResponseEntity<UserDto> response = adminController.createAdministrator(registerUserDto);
 
         // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(createdAdmin, response.getBody());
+        assertAll(
+                () -> assertEquals(HttpStatus.CREATED, response.getStatusCode(), "Expected HTTP status should be 201 CREATED"),
+                () -> assertEquals(createdAdmin, response.getBody(), "The response body should match the expected admin DTO")
+        );
+    }
+
+    @Test
+    void testCreateAdministrator_ForbiddenRole() throws IOException {
+        // Arrange
+        RegisterUserDto registerUserDto = new RegisterUserDto();
+        registerUserDto.setRole(Role.READER); // A role that is not ADMIN
+
+        when(userService.createAdministrator(any(RegisterUserDto.class)))
+                .thenReturn(ResponseEntity.status(HttpStatus.FORBIDDEN).body(null));
+
+        // Act
+        ResponseEntity<UserDto> response = adminController.createAdministrator(registerUserDto);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNull(response.getBody());
+    }
+
+    @Test
+    void testCreateAdministrator_UserAlreadyExists() throws IOException {
+        // Arrange
+        RegisterUserDto registerUserDto = new RegisterUserDto();
+        registerUserDto.setRole(Role.ADMIN);
+        registerUserDto.setEmail("existing@example.com");
+
+        when(userService.createAdministrator(any(RegisterUserDto.class)))
+                .thenReturn(ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .header("Error-Message", "User already in the database")
+                        .body(null));
+
+        // Act
+        ResponseEntity<UserDto> response = adminController.createAdministrator(registerUserDto);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNull(response.getBody());
+        assertTrue(response.getHeaders().containsKey("Error-Message"));
+        assertEquals("User already in the database", response.getHeaders().getFirst("Error-Message"));
     }
 
     @Test

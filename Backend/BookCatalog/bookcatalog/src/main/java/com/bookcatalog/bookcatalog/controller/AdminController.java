@@ -26,10 +26,9 @@ public class AdminController {
 
     @PostMapping("/new")
     @PreAuthorize("hasRole('SUPER')")
-    public ResponseEntity<UserDto> createAdministrator(@RequestBody RegisterUserDto registerUserDto) throws IOException {
-        UserDto createdAdmin = userService.createAdministrator(registerUserDto);
+    public ResponseEntity<UserDto> createAdministrator(@RequestBody RegisterUserDto registerUserDto) {
 
-        return ResponseEntity.ok(createdAdmin);
+        return userService.createAdministrator(registerUserDto);
     }
 
     @GetMapping("/all")
@@ -44,6 +43,7 @@ public class AdminController {
     @GetMapping("/{type}/{identifier}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<UserDto> getUser(@PathVariable String type, @PathVariable String identifier) {
+
         try {
             User user = userService.getUserByIdentifier(identifier, type);
             UserDto userDto = new UserDto(user);
