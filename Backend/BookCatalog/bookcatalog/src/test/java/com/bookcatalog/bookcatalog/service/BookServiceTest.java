@@ -3,21 +3,14 @@ package com.bookcatalog.bookcatalog.service;
 import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
-import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByISBNStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByIdStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByTitleStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByISBNStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByIdStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByTitleStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -68,24 +61,17 @@ public class BookServiceTest {
     private Authentication authentication;
 
     @Mock
-    private UpdateBookByIdStrategy updateBookByIdStrategy;
+    private UpdateStrategy<Book> updateStrategy;
 
     @Mock
-    private UpdateBookByTitleStrategy updateBookByTitleStrategy;
+    private DeleteStrategy<Book> deleteStrategy;
 
     @Mock
-    private DeleteBookByIdStrategy deleteBookByIdStrategy;
+    private StrategyFactory<Book> strategyFactory;
 
-    @Mock
-    private DeleteBookByTitleStrategy deleteBookByTitleStrategy;
+    @InjectMocks
+    private BookService bookService;
 
-    @Mock
-    private DeleteBookByISBNStrategy deleteBookByISBNStrategy;
-
-    @Mock
-    private UpdateBookByISBNStrategy updateBookByISBNStrategy;
-
-    private BookService bookService; // removi isto do injectMock pois tenho 2 construtores diferentes e o injectMocks usa o que tem todos os argumentos
     private Book book;
     private Book newDetails;
 
@@ -94,10 +80,13 @@ public class BookServiceTest {
 
         MockitoAnnotations.openMocks(this);
 
-        List<UpdateStrategy> updatestrategies = List.of(updateBookByIdStrategy, updateBookByTitleStrategy, updateBookByISBNStrategy);
-        List<DeleteStrategy> deletestrategies = List.of(deleteBookByIdStrategy, deleteBookByTitleStrategy, deleteBookByISBNStrategy);
-        bookService = new BookService(userRepository, bookRepository, updatestrategies, deletestrategies);
+        bookService = new BookService(userRepository, bookRepository, strategyFactory);
+
+        SecurityContext securityContext = mock(SecurityContext.class);
         SecurityContextHolder.setContext(securityContext);
+
+        Authentication authentication = mock(Authentication.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
 
         book = new Book(1, "Title", "Author");
         newDetails = new Book(1, "New Title", "New Author");
@@ -109,7 +98,6 @@ public class BookServiceTest {
 
             SecurityContextHolder.clearContext();
             when(securityContext.getAuthentication()).thenReturn(null);
-
         } else {
 
             UserDetails userDetails = mock(UserDetails.class);
@@ -155,7 +143,7 @@ public class BookServiceTest {
     void testCreateBookWithNullBookRepository_Failure() {
 
         // Arrange
-        bookService = new BookService(userRepository, null);
+        bookService = new BookService(userRepository, null, strategyFactory);
 
         // Act & Assert
         Book book = new Book();
@@ -279,8 +267,8 @@ public class BookServiceTest {
     public void testGetAllBooks_UserIsNull() throws IOException {
 
         // Arrange
-        when(securityContext.getAuthentication()).thenReturn(null);
-        SecurityContextHolder.setContext(securityContext);
+
+        mockCurrentUser(null);
         // Act
         ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
 
@@ -594,155 +582,167 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testUpdateBookByBookId_Success() throws IOException {
-
-        when(bookRepository.getReferenceById(1)).thenReturn(book);
-        when(updateBookByIdStrategy.update(book, newDetails, "cover.jpg")).thenReturn(newDetails);
-
-        // Act: Call the updateBook method
-        Book updatedBook = bookService.updateBook("1", "id", newDetails, "cover.jpg");
-
-
-        // Assert: Verify the updates and interactions
-        assertEquals("New Title", updatedBook.getTitle());
-        assertEquals("New Author", updatedBook.getAuthor());
-        verify(bookRepository, times(1)).getReferenceById(1);
-        verify(updateBookByIdStrategy, times(1)).update(book, newDetails, "cover.jpg");
-    }
-
-    @Test
-    public void testUpdateBookByBookTitle_Success() throws IOException {
-
-        when(bookRepository.findBookByTitle("Title")).thenReturn(Optional.of(book));
-        when(updateBookByTitleStrategy.update(book, newDetails, "cover.jpg")).thenReturn(newDetails);
-
-        // Act: Call the updateBook method
-        Book updatedBook = bookService.updateBook("Title", "title", newDetails, "cover.jpg");
-
-        // Assert: Verify the updates and interactions
-        assertEquals("New Title", updatedBook.getTitle());
-        assertEquals("New Author", updatedBook.getAuthor());
-        verify(bookRepository, times(1)).findBookByTitle("Title");
-        verify(updateBookByTitleStrategy, times(1)).update(book, newDetails, "cover.jpg");
-    }
-
-    @Test
-    public void testUpdateBookByBookISBN_Success() throws IOException {
-
-        String bookISBN = "1234567890123";
-        String newDetailsISBN = "1234567890124";
-        book.setIsbn(bookISBN);
-        newDetails.setIsbn(newDetailsISBN);
-
-        when(bookRepository.findBookByIsbn(bookISBN)).thenReturn(Optional.of(book));
-        when(updateBookByISBNStrategy.update(book, newDetails, "cover.jpg")).thenReturn(newDetails);
-
-        // Act: Call the updateBook method
-        Book updatedBook = bookService.updateBook("1234567890123", "isbn", newDetails, "cover.jpg");
-
-        // Assert: Verify the updates and interactions
-        assertEquals("New Title", updatedBook.getTitle());
-        assertEquals("New Author", updatedBook.getAuthor());
-        assertEquals(newDetailsISBN, updatedBook.getIsbn());
-        verify(bookRepository, times(1)).findBookByIsbn(bookISBN);
-        verify(updateBookByISBNStrategy, times(1)).update(book, newDetails, "cover.jpg");
-    }
-
-    @Test
-    public void testUpdateBook_InvalidUpdateType() {
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            bookService.updateBook("1", "invalid_type", newDetails, "cover.jpg");
-        });
-
-        verify(bookRepository, never()).getReferenceById(anyInt());
-        verify(bookRepository, never()).findBookByTitle(anyString());
-        verify(bookRepository, never()).findBookByIsbn(anyString());
-    }
-
-    @Test
-    public void testUpdateBook_BookNotFound() throws IOException {
-
-        when(updateBookByIdStrategy.update(null, newDetails, "cover.jpg")).thenThrow(new EntityNotFoundException("Book not found"));
-
-        assertThrows(EntityNotFoundException.class, () -> {
-            bookService.updateBook("1", "id", newDetails, "cover.jpg");
-        });
-    }
-
-    @Test
-    public void testUpdateBook_NewDetailsNull() throws IOException {
-
+    void testUpdateBook_Success() throws Exception {
         // Arrange
-        when(bookRepository.getReferenceById(1)).thenReturn(book);
-        when(updateBookByIdStrategy.update(book, null, "cover.jpg")).thenThrow(new IllegalArgumentException("New details cannot be null"));
-        // Act and Assert
-        assertThrows(IllegalArgumentException.class, () -> {
-            bookService.updateBook("1", "id", null, "cover.jpg");
-        }, "New details cannot be null");
-    }
+        String identifier = "1";
+        String type = "id";
+        Book existingBook = new Book();
+        Book newBookDetails = new Book();
 
-    @Test
-    public void testDeleteBookById_Success() throws IOException {
-
-        // Arrange
-        when(bookRepository.getReferenceById(1)).thenReturn(book);
+        when(strategyFactory.getUpdateStrategy(type)).thenReturn(updateStrategy);
+        when(bookRepository.getReferenceById(Integer.parseInt(identifier))).thenReturn(existingBook);
 
         // Act
-        bookService.deleteBook("1", "id");
+        ResponseEntity<Void> response = bookService.updateBook(identifier, type, newBookDetails, null);
 
         // Assert
-        verify(deleteBookByIdStrategy, times(1)).delete(book);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(updateStrategy, times(1)).update(existingBook, newBookDetails, null);
     }
 
     @Test
-    public void testDeleteBookById_BookNotFound_Failure() throws IOException {
-
+    void testUpdateBook_StrategyNotFound() throws IOException {
         // Arrange
-        when(bookRepository.getReferenceById(anyInt())).thenThrow(new EntityNotFoundException("Book not found"));
+        String identifier = "1";
+        String type = "unknownType";
+        String filename = "file.pdf";
+        Book newBookDetails = new Book();
 
-        // Act and Assert
-        assertThrows(BookNotFoundException.class, () -> {
-            bookService.deleteBook("1", "id");
-        });
-    }
-
-    @Test
-    public void testDeleteBook_InvalidDeleteType() {
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            bookService.deleteBook("1", "invalid_type");
-        });
-
-        verify(bookRepository, never()).getReferenceById(anyInt());
-        verify(bookRepository, never()).findBookByTitle(anyString());
-        verify(bookRepository, never()).findBookByIsbn(anyString());
-    }
-
-    @Test
-    public void testDeleteBookByTitle_Success() throws IOException {
-
-        // Arrange
-        when(bookRepository.findBookByTitle("Title")).thenReturn(Optional.of(book));
+        when(strategyFactory.getUpdateStrategy(type)).thenReturn(null);
 
         // Act
-        bookService.deleteBook("Title", "title");
+        ResponseEntity<Void> response = bookService.updateBook(identifier, type, newBookDetails, filename);
 
         // Assert
-        verify(deleteBookByTitleStrategy, times(1)).delete(book);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(updateStrategy, never()).update(any(Book.class), any(Book.class), anyString());
     }
 
     @Test
-    public void testDeleteBookByISBN_Success() throws IOException {
-
+    void testUpdateBook_BookNotFound() throws IOException {
         // Arrange
-        when(bookRepository.findBookByIsbn("000000000000")).thenReturn(Optional.of(book));
+        String identifier = "1";
+        String type = "id";
+        String filename = "file.pdf";
+        Book newBookDetails = new Book();
+
+        when(strategyFactory.getUpdateStrategy(type)).thenReturn(updateStrategy);
+        when(bookRepository.getReferenceById(Integer.parseInt(identifier))).thenThrow(new BookNotFoundException("Book not found with id: " + identifier, null));
 
         // Act
-        bookService.deleteBook("000000000000", "isbn");
+        ResponseEntity<Void> response = bookService.updateBook(identifier, type, newBookDetails, filename);
 
         // Assert
-        verify(deleteBookByISBNStrategy, times(1)).delete(book);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        verify(updateStrategy, never()).update(any(Book.class), any(Book.class), anyString());
+    }
+
+    @Test
+    void testUpdateBook_IllegalArgumentException() throws Exception {
+        // Arrange
+        String identifier = "abc";
+        String type = "id";
+        String filename = "file.pdf";
+        Book existingBook = new Book();
+        Book newBookDetails = new Book();
+
+        when(strategyFactory.getUpdateStrategy(type)).thenReturn(updateStrategy);
+        when(bookRepository.findById(anyInt())).thenReturn(Optional.of(existingBook));
+        doThrow(new IllegalArgumentException()).when(updateStrategy).update(existingBook, newBookDetails, filename);
+
+        // Act
+        ResponseEntity<Void> response = bookService.updateBook(identifier, type, newBookDetails, filename);
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+    }
+
+    @Test
+    void testUpdateBook_IOException() throws Exception {
+        // Arrange
+        String identifier = "abc";
+        String type = "id";
+        String filename = "file.pdf";
+        Book existingBook = new Book();
+        Book newBookDetails = new Book();
+
+        when(strategyFactory.getUpdateStrategy(type)).thenReturn(updateStrategy);
+        when(bookRepository.findById(anyInt())).thenReturn(Optional.of(existingBook));
+        doThrow(new IOException()).when(updateStrategy).update(existingBook, newBookDetails, filename);
+
+        // Act
+        ResponseEntity<Void> response = bookService.updateBook(identifier, type, newBookDetails, filename);
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+    }
+
+    @Test
+    void deleteBook_ShouldReturnBadRequest_WhenStrategyIsNull() {
+        String identifier = "123";
+        String type = "isbn";
+
+        when(strategyFactory.getDeleteStrategy(type)).thenReturn(null);
+
+        ResponseEntity<Void> response = bookService.deleteBook(identifier, type);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void deleteBook_ShouldReturnOk_WhenBookIsDeletedSuccessfully() throws IOException {
+        String identifier = "123";
+        String type = "isbn";
+        Book book = new Book();
+
+        when(strategyFactory.getDeleteStrategy(type)).thenReturn(deleteStrategy);
+        when(bookRepository.findBookByIsbn(identifier)).thenReturn(Optional.of(book));
+
+        ResponseEntity<Void> response = bookService.deleteBook(identifier, type);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(deleteStrategy, times(1)).delete(book);
+    }
+
+    @Test
+    void deleteBook_ShouldReturnNotFound_WhenBookNotFound() {
+        String identifier = "123";
+        String type = "isbn";
+
+        when(strategyFactory.getDeleteStrategy(type)).thenReturn(deleteStrategy);
+        when(bookRepository.findBookByIsbn(identifier)).thenThrow(new BookNotFoundException("Book not found with id: " + identifier, null));
+
+        ResponseEntity<Void> response = bookService.deleteBook(identifier, type);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void deleteBook_ShouldReturnInternalServerError_WhenIllegalArgumentExceptionIsThrown() {
+        String identifier = "123";
+        String type = "isbn";
+
+        when(strategyFactory.getDeleteStrategy(type)).thenReturn(deleteStrategy);
+        when(bookRepository.findBookByIsbn(identifier)).thenThrow(new IllegalArgumentException());
+
+        ResponseEntity<Void> response = bookService.deleteBook(identifier, type);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+    }
+
+    @Test
+    void deleteBook_ShouldReturnInternalServerError_WhenIOExceptionIsThrown() throws IOException {
+        String identifier = "123";
+        String type = "isbn";
+        Book book = new Book();
+
+        when(strategyFactory.getDeleteStrategy(type)).thenReturn(deleteStrategy);
+        when(bookRepository.findBookByIsbn(identifier)).thenReturn(Optional.of(book));
+        doThrow(new IOException()).when(deleteStrategy).delete(book);
+
+        ResponseEntity<Void> response = bookService.deleteBook(identifier, type);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
 
     @Test
@@ -869,11 +869,6 @@ public class BookServiceTest {
         // Verify
         verify(bookRepository).saveAll(books);
     }
-
-private UserDetails mockUserDetails(String username) {
-    return new org.springframework.security.core.userdetails.User(username, "password", new ArrayList<>());
-}
-
 
 @AfterEach
     public void tearDown() {

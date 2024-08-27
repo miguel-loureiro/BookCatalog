@@ -26,5 +26,5 @@ public class GuestController {
         this.bookService = bookService;
         this.authenticationService = authenticationService;
     }
-    
+
 }

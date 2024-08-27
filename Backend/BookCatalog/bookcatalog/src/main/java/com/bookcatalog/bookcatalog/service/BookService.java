@@ -7,13 +7,8 @@ import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByISBNStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByIdStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByTitleStrategy;
+import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByISBNStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByIdStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateBookByTitleStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,48 +29,14 @@ public class BookService {
     @Autowired
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
-
-    private Map<String, UpdateStrategy> updateStrategies;
-    private Map<String, DeleteStrategy> deleteStrategies;
+    private final StrategyFactory<Book> strategyFactory;
 
     @Autowired
-    public BookService(UserRepository userRepository, BookRepository bookRepository, List<UpdateStrategy> updatestrategies, List<DeleteStrategy> deletestrategies) {
+    public BookService(UserRepository userRepository, BookRepository bookRepository, StrategyFactory<Book> strategyFactory) {
 
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;
-
-        // Register all update strategies
-        updateStrategies = new HashMap<>();
-        updatestrategies.forEach(updatestrategy -> {
-
-            if (updatestrategy instanceof UpdateBookByIdStrategy) {
-                updateStrategies.put("id", updatestrategy);
-            } else if (updatestrategy instanceof UpdateBookByTitleStrategy) {
-                updateStrategies.put("title", updatestrategy);
-            } else if (updatestrategy instanceof UpdateBookByISBNStrategy) {
-                updateStrategies.put("isbn", updatestrategy);
-            }
-        });
-
-        // Register all delete strategies
-        deleteStrategies = new HashMap<>();
-        deletestrategies.forEach(deletestrategy -> {
-
-            if (deletestrategy instanceof DeleteBookByIdStrategy) {
-                deleteStrategies.put("id", deletestrategy);
-            } else if (deletestrategy instanceof DeleteBookByTitleStrategy) {
-                deleteStrategies.put("title", deletestrategy);
-            } else if (deletestrategy instanceof DeleteBookByISBNStrategy) {
-                deleteStrategies.put("isbn", deletestrategy);
-            }
-        });
-    }
-
-    @Autowired
-    public BookService(UserRepository userRepository, BookRepository bookRepository) {
-
-        this.userRepository = userRepository;
-        this.bookRepository = bookRepository;
+        this.strategyFactory = strategyFactory;
     }
 
     public Book createBook(Book book) {
@@ -118,7 +79,8 @@ public class BookService {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size) throws IOException {
 
-        User user;
+        User user ;
+
         try {
             user = getCurrentUser();
         } catch (IllegalStateException e) {
@@ -130,54 +92,25 @@ public class BookService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Sort authorSort = Sort.by("author");
-        Sort titleSort = Sort.by("title");
-        Sort groupBySort = authorSort.and(titleSort);
-
-        Pageable paging = PageRequest.of(page, size, groupBySort.ascending());
-
-        try {
-
-            Page<Book> booksPage = bookRepository.findAll(paging);
-            return ResponseEntity.ok(booksPage);
-        } catch (Exception e) {
-
-            throw new RuntimeException("An error occurred while fetching books", e);
-        }
+        Pageable paging = PageRequest.of(page, size, Sort.by("author").and(Sort.by("title")).ascending());
+        Page<Book> booksPage = bookRepository.findAll(paging);
+        return ResponseEntity.ok(booksPage);
     }
 
     public Page<Book> getBooksByUserId(Integer userId, int page, int size) {
 
         Optional<User> userOptional = userRepository.findById(userId);
 
-        Sort authorSort = Sort.by("author");
-        Sort titleSort = Sort.by("title");
-        Sort groupBySort = authorSort.and(titleSort);
-
-        Pageable paging = PageRequest.of(page, size, groupBySort.ascending());
-
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            Set<Book> booksSet = new HashSet<>(user.getBooks());
-
-            List<Book> booksList = new ArrayList<>(booksSet); // Converte Set para List para funcionar com a subList
-
-            booksList.sort(Comparator.comparing(Book::getAuthor).thenComparing(Book::getTitle)); // Assegurar a ordenacao, primeiro por autor e depois por titulo
-
-            int start = (int) paging.getOffset();
-            int end = Math.min((start + paging.getPageSize()), booksList.size());
-
-            if (start > booksList.size()) {
-                return new PageImpl<>(Collections.emptyList(), paging, booksList.size());
-            }
-
-            List<Book> subList = booksList.subList(start, end);
-            return new PageImpl<>(subList, paging, booksList.size());
-        } else {
-            // verificacao do indice de inicio. se for maior que o tamanho da lista então retorna uma lista vazia
-            return Page.empty(paging);
+        if (userOptional.isEmpty()) {
+            userOptional = userRepository.findById(userId);
         }
+
+        return userOptional.map(user -> {
+            List<Book> booksList = new ArrayList<>(user.getBooks());
+            return paginateBooks(booksList, page, size);
+        }).orElse(Page.empty(PageRequest.of(page, size)));
     }
+
 
     public Page<Book> getBooksByUserIdentifier(String identifier, int page, int size) {
 
@@ -187,75 +120,54 @@ public class BookService {
             userOptional = userRepository.findByEmail(identifier);
         }
 
-        Sort authorSort = Sort.by("author");
-        Sort titleSort = Sort.by("title");
-        Sort groupBySort = authorSort.and(titleSort);
+        return userOptional.map(user -> {
 
-        Pageable paging = PageRequest.of(page, size, groupBySort.ascending());
-
-        if (userOptional.isPresent()) {
-
-            User user = userOptional.get();
             List<Book> booksList = new ArrayList<>(user.getBooks());
+            return paginateBooks(booksList, page, size);
+        }).orElse(Page.empty(PageRequest.of(page, size)));
+    }
 
-            int start = (int) paging.getOffset();
-            int end = Math.min((start + paging.getPageSize()), booksList.size());
+    public ResponseEntity<Void> updateBook(String identifier, String type, Book newBookDetails, String filename) {
 
+        try {
 
-            if (start > booksList.size()) {
+            UpdateStrategy<Book> strategy = strategyFactory.getUpdateStrategy(type);
+            if (strategy == null) {
 
-                return new PageImpl<>(Collections.emptyList(), paging, booksList.size());
+                return ResponseEntity.badRequest().build();
             }
 
-            List<Book> subList = booksList.subList(start, end);
-            return new PageImpl<>(subList, paging, booksList.size());
-        } else {
-            // verificacao do indice de inicio. se for maior que o tamanho da lista então retorna uma lista vazia
-            return Page.empty(paging);
+            Book existingBook = getBook(identifier, type);
+            strategy.update(existingBook, newBookDetails, filename);
+            return ResponseEntity.ok().build();
+        } catch (BookNotFoundException e) {
+
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException | IOException e) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    public Book updateBook(String identifier, String type, Book newDetails, String filename) throws IOException {
+    public ResponseEntity<Void> deleteBook(String identifier, String type) {
 
-        UpdateStrategy<Book> strategy = updateStrategies.get(type);
+        try {
 
-        if (strategy == null) {
-            throw new IllegalArgumentException("Invalid update type: " + type);
+            DeleteStrategy<Book> strategy = strategyFactory.getDeleteStrategy(type);
+            if (strategy == null) {
+
+                return ResponseEntity.badRequest().build();
+            }
+            Book bookToDelete = getBook(identifier, type);
+            strategy.delete(bookToDelete);
+            return ResponseEntity.ok().build();
+        } catch (BookNotFoundException e) {
+
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException | IOException e) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-
-        Book bookToUpdate;
-
-        switch (type.toLowerCase()) {
-            case "id":
-                bookToUpdate = bookRepository.getReferenceById(Integer.valueOf(identifier));
-                break;
-            case "title":
-                bookToUpdate = bookRepository.findBookByTitle(identifier)
-                        .orElseThrow(() -> new EntityNotFoundException("Book not found with title: " + identifier));
-                break;
-            case "isbn":
-                bookToUpdate = bookRepository.findBookByIsbn(identifier)
-                        .orElseThrow(() -> new EntityNotFoundException("Book not found with ISBN: " + identifier));
-                break;
-            default:
-                throw new IllegalArgumentException("Invalid update type: " + type);
-        }
-
-        return strategy.update(bookToUpdate, newDetails, filename);
-
-    }
-
-    public void deleteBook(String identifier, String type) throws IOException {
-
-        DeleteStrategy<Book> strategy = deleteStrategies.get(type);
-
-        if (strategy == null) {
-            throw new IllegalArgumentException("Invalid delete type: " + type);
-        }
-
-        Book bookToDelete = getBook(identifier, type);
-
-        strategy.delete(bookToDelete);
     }
 
     public void saveAll(List<Book> books) {
@@ -285,6 +197,27 @@ public class BookService {
             throw new EntityNotFoundException("Book not found in the user's collection");
         }
         userRepository.save(currentUser);
+    }
+
+    private Page<Book> paginateBooks(List<Book> books, int page, int size) {
+
+        Sort authorSort = Sort.by("author");
+        Sort titleSort = Sort.by("title");
+        Sort groupBySort = authorSort.and(titleSort);
+
+        Pageable paging = PageRequest.of(page, size, groupBySort.ascending());
+
+        int start = (int) paging.getOffset();
+        int end = Math.min((start + paging.getPageSize()), books.size());
+
+
+        if (start > books.size()) {
+
+            return new PageImpl<>(Collections.emptyList(), paging, books.size());
+        }
+
+        List<Book> subList = books.subList(start, end);
+        return new PageImpl<>(subList, paging, books.size());
     }
 
     private User getCurrentUser() {
