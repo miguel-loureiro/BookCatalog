@@ -72,8 +72,6 @@ public class UserController {
         }
     }
 
-
-
     @DeleteMapping("/{type}/{identifier}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable String type, @PathVariable String identifier) throws IOException {

@@ -216,7 +216,6 @@ class UserServiceTest {
         verify(userRepository, never()).findByUsername(anyString());
     }
 
-    // --------------------------------
     @Test
     void getUserByIdentifier_Id_Success() {
         // Arrange
@@ -319,12 +318,6 @@ class UserServiceTest {
         verify(userRepository, times(1)).findByEmail(identifier);
     }
 
-
-
-
-
-    // --------------------------------
-
     @Test
     public void testGetUserByIdentifier_InvalidType() {
 
@@ -403,13 +396,34 @@ class UserServiceTest {
     }
 
     @Test
-    void createUserNonAdmin_UserDoesNotExist_CreatesAndReturnsUser() {
+    void createUserNonAdmin_Role_Reader_UserDoesNotExist_CreatesAndReturnsUser() {
         // Arrange
         RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
         when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.empty());
         when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
         when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
         User savedUser = new User(input.getUsername(), input.getEmail(), "encodedPassword", Role.READER);
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        // Act
+        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
+
+        // Assert
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(input.getUsername(), response.getBody().getUsername());
+        assertEquals(input.getEmail(), response.getBody().getEmail());
+        assertEquals(input.getRole(), response.getBody().getRole());
+    }
+
+    @Test
+    void createUserNonAdmin_Role_Guest_UserDoesNotExist_CreatesAndReturnsUser() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.GUEST);
+        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
+        User savedUser = new User(input.getUsername(), input.getEmail(), "encodedPassword", Role.GUEST);
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
 
         // Act
@@ -773,6 +787,50 @@ class UserServiceTest {
 
         // Act
         ResponseEntity<Void> response = userService.updateUser("updateuser@email.com", "email", newDetails);
+
+        // Assert
+        verify(updateStrategy).update(userToUpdate, newUserDetails, null);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void testUpdateUser_IdentifierIsEmail_Success_SameUser() throws IOException {
+        // Arrange
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+        User newUserDetails = new User(newDetails);
+        currentUser.setUsername("sameUser");
+        currentUser.setEmail("sameUser@email.com");
+        currentUser.setRole(Role.GUEST);
+
+        mockCurrentUser(currentUser);
+
+        when(userRepository.findByEmail("sameUser@email.com")).thenReturn(Optional.of(currentUser));
+
+        // Act
+        ResponseEntity<Void> response = userService.updateUser("sameUser@email.com", "email", newDetails);
+
+        // Assert
+        verify(updateStrategy).update(currentUser, newUserDetails, null);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    void testUpdateUser_Success_HigherRank() throws IOException {
+        // Arrange
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+        User newUserDetails = new User(newDetails);
+        currentUser.setUsername("super");
+        currentUser.setRole(Role.SUPER);
+
+        userToUpdate.setUsername("user");
+        userToUpdate.setRole(Role.GUEST);
+
+        mockCurrentUser(currentUser);
+
+        when(userService.getUserByIdentifier("1", "id")).thenReturn(userToUpdate);
+
+        // Act
+        ResponseEntity<Void> response = userService.deleteUser("1", "id");
 
         // Assert
         verify(updateStrategy).update(userToUpdate, newUserDetails, null);

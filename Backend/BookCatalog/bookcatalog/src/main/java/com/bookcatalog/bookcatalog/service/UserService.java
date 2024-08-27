@@ -310,17 +310,48 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
 
     private boolean hasPermissionToDelete(User currentUser, User targetUser) {
 
-        boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
-        boolean hasHigherRank = currentUser.getRole().getRank() > targetUser.getRole().getRank();
+        boolean isSuperUser = currentUser.getRole() == Role.SUPER;
+        boolean isAdminUser = currentUser.getRole() == Role.ADMIN;
+        boolean isReaderUser = currentUser.getRole() == Role.READER;
 
-        return isSameUser || hasHigherRank;
+        boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
+
+        if (isSuperUser) {
+            return !isSameUser; // SUPER cannot delete itself
+        }
+
+        if (isAdminUser) {
+            return isSameUser || targetUser.getRole() == Role.READER;
+        }
+
+        if (isReaderUser) {
+            return isSameUser;
+        }
+
+        return false; // GUEST cannot be deleted by anyone
     }
 
     private boolean hasPermissionToUpdate(User currentUser, User targetUser) {
 
-        boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
-        boolean hasHigherRank = currentUser.getRole().getRank() > targetUser.getRole().getRank();
+        boolean isSuperUser = currentUser.getRole() == Role.SUPER;
+        boolean isAdminUser = currentUser.getRole() == Role.ADMIN;
+        boolean isReaderUser = currentUser.getRole() == Role.READER;
 
-        return isSameUser || hasHigherRank;
+        boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
+
+        if (isSuperUser) {
+            return !isSameUser; // SUPER cannot update itself
+        }
+
+        if (isAdminUser) {
+            return isSameUser || targetUser.getRole() == Role.READER;
+        }
+
+        if (isReaderUser) {
+            return isSameUser;
+        }
+
+        return false; // GUEST cannot be updated by anyone
+
     }
 }
