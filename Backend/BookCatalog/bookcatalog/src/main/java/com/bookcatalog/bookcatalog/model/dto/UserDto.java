@@ -6,7 +6,7 @@ import com.bookcatalog.bookcatalog.model.User;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class UserDto {
@@ -43,5 +43,22 @@ public class UserDto {
         this.username = username;
         this.email = email;
         this.role = role;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserDto userDto = (UserDto) o;
+        return Objects.equals(username, userDto.username) &&
+                Objects.equals(email, userDto.email) &&
+                role == userDto.role &&
+                Objects.equals(coverImage, userDto.coverImage) &&
+                Objects.equals(books, userDto.books);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(username, email, role, coverImage, books);
     }
 }

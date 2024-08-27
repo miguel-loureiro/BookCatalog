@@ -66,6 +66,15 @@ Avoiding Unnecessary Complexity: Mapping directly from RegisterUserDto to User k
 
 Performance: Directly converting RegisterUserDto to User avoids an extra transformation step, which might be negligible in terms of performance but still contributes to overall efficiency.
      */
+
+    public UserDto createUserNonAdmin(RegisterUserDto input) {
+
+        User user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), input.getRole());
+        User savedUser = userRepository.save(user);
+
+        return new UserDto(savedUser);
+    }
+
     public UserDto createAdministrator(RegisterUserDto input) {
 
         User user = new User(input.getUsername(), input.getEmail(), passwordEncoder.encode(input.getPassword()), Role.ADMIN);
@@ -261,7 +270,6 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
 
         return null;
     }
-
 
     private boolean hasPermissionToDelete(User currentUser, User targetUser) {
 

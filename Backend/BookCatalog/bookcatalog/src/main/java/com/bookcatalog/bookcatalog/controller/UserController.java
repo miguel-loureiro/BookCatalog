@@ -60,11 +60,21 @@ public class UserController {
         }
     }
 
+    @PostMapping("/new")
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
+    public ResponseEntity<UserDto> createUserNonAdmin(@RequestBody RegisterUserDto registerUserDto) throws IOException {
+        UserDto createdUser = userService.createUserNonAdmin(registerUserDto);
+
+        return ResponseEntity.ok(createdUser);
+    }
+
     @DeleteMapping("/{type}/{identifier}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable String type, @PathVariable String identifier) throws IOException {
 
         return userService.deleteUser(identifier, type);
     }
+
+
 
 }

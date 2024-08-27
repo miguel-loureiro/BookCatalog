@@ -87,23 +87,13 @@ class UserServiceTest {
     private User userToUpdate;
 
     @Mock
-    private User adminToUpdate;
-
-    @Mock
-    private User mockAdmin;
-
-    @Mock
     private UserDetails userDetails;
-
-    @Mock
-    private UserDto newDetails;
 
     @InjectMocks
     private UserService userService;
 
     private User currentUser;
     private UserDto inputDto;
-
 
     @BeforeEach
     void setUp() {
@@ -129,8 +119,6 @@ class UserServiceTest {
         inputDto.setUsername("newUser");
         inputDto.setEmail("newUser@example.com");
         inputDto.setRole(Role.READER);
-
-        mockAdmin = new User("adminUser", "adminUser@example.com", "password", Role.ADMIN);
 
         SecurityContextHolder.setContext(securityContext);
         when(securityContext.getAuthentication()).thenReturn(authentication);
@@ -228,6 +216,115 @@ class UserServiceTest {
         verify(userRepository, never()).findByUsername(anyString());
     }
 
+    // --------------------------------
+    @Test
+    void getUserByIdentifier_Id_Success() {
+        // Arrange
+        String type = "id";
+        String identifier = "1";
+        User user = new User();  // Assuming User has a default constructor
+
+        when(userRepository.getReferenceById(Integer.parseInt(identifier))).thenReturn(user);
+
+        // Act
+        User result = userService.getUserByIdentifier(identifier, type);
+
+        // Assert
+        assertEquals(user, result);
+        verify(userRepository, times(1)).getReferenceById(Integer.parseInt(identifier));
+    }
+
+    @Test
+    void getUserByIdentifier_Id_UserNotFound() {
+        // Arrange
+        String type = "id";
+        String identifier = "1";
+
+        when(userRepository.getReferenceById(Integer.parseInt(identifier)))
+                .thenThrow(new EntityNotFoundException());
+
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        verify(userRepository, times(1)).getReferenceById(Integer.parseInt(identifier));
+    }
+
+    @Test
+    void getUserByIdentifier_Id_InvalidFormat() {
+        // Arrange
+        String type = "id";
+        String identifier = "invalid";
+
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        verify(userRepository, times(0)).getReferenceById(anyInt());  // Should not call repository
+    }
+
+    @Test
+    void getUserByIdentifier_Username_Success() {
+        // Arrange
+        String type = "username";
+        String identifier = "testUser";
+        User user = new User();
+
+        when(userRepository.findByUsername(identifier)).thenReturn(Optional.of(user));
+
+        // Act
+        User result = userService.getUserByIdentifier(identifier, type);
+
+        // Assert
+        assertEquals(user, result);
+        verify(userRepository, times(1)).findByUsername(identifier);
+    }
+
+    @Test
+    void getUserByIdentifier_Username_NotFound() {
+        // Arrange
+        String type = "username";
+        String identifier = "nonexistentUser";
+
+        when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        verify(userRepository, times(1)).findByUsername(identifier);
+    }
+
+    @Test
+    void getUserByIdentifier_Email_Success() {
+        // Arrange
+        String type = "email";
+        String identifier = "user@example.com";
+        User user = new User();
+
+        when(userRepository.findByEmail(identifier)).thenReturn(Optional.of(user));
+
+        // Act
+        User result = userService.getUserByIdentifier(identifier, type);
+
+        // Assert
+        assertEquals(user, result);
+        verify(userRepository, times(1)).findByEmail(identifier);
+    }
+
+    @Test
+    void getUserByIdentifier_Email_NotFound() {
+        // Arrange
+        String type = "email";
+        String identifier = "nonexistent@example.com";
+
+        when(userRepository.findByEmail(identifier)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        verify(userRepository, times(1)).findByEmail(identifier);
+    }
+
+
+
+
+
+    // --------------------------------
+
     @Test
     public void testGetUserByIdentifier_InvalidType() {
 
@@ -236,6 +333,9 @@ class UserServiceTest {
         );
 
         assertEquals("Invalid identifier type: invalidType", exception.getMessage());
+        verify(userRepository, times(0)).getReferenceById(anyInt());  // Should not call repository
+        verify(userRepository, times(0)).findByUsername(anyString());
+        verify(userRepository, times(0)).findByEmail(anyString());
     }
 
     @Test
@@ -271,6 +371,36 @@ class UserServiceTest {
         UserDto thirdUserDto = response.getBody().getContent().get(2);
         assertEquals("user3", thirdUserDto.getUsername());
         assertEquals("user3@example.com", thirdUserDto.getEmail());
+    }
+
+    @Test
+    void createUserNonAdmin_ValidInput_ReturnsUserDto() {
+
+        // Arrange
+        when(mockRegisterUserDto.getUsername()).thenReturn("guest");
+        when(mockRegisterUserDto.getEmail()).thenReturn("guest@example.com");
+        when(mockRegisterUserDto.getPassword()).thenReturn("securePassword");
+
+        when(passwordEncoder.encode("securePassword")).thenReturn("encodedPassword");
+
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        when(savedUser.getUsername()).thenReturn("guest");
+        when(savedUser.getEmail()).thenReturn("guest@example.com");
+        when(savedUser.getRole()).thenReturn(Role.GUEST);
+
+        UserDto result = userService.createUserNonAdmin(mockRegisterUserDto);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals("guest", result.getUsername());
+        assertEquals("guest@example.com", result.getEmail());
+        assertEquals(Role.GUEST, result.getRole());
+        verify(mockRegisterUserDto).getUsername();
+        verify(mockRegisterUserDto).getEmail();
+        verify(mockRegisterUserDto).getPassword();
+        verify(passwordEncoder).encode("securePassword");
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
