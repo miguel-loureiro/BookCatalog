@@ -6,6 +6,7 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.dto.RegisterUserDto;
 import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
+import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
@@ -24,9 +25,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -69,10 +68,7 @@ class UserServiceTest {
     private UpdateStrategy<User> updateStrategy;
 
     @Mock
-    private Map<String, UpdateStrategy<User>> updateStrategiesMap;
-
-    @Mock
-    private Map<String, DeleteStrategy<User>> deleteStrategiesMap;
+    private StrategyFactory<User> strategyFactory;
 
     @Mock
     private User savedUser;
@@ -81,7 +77,7 @@ class UserServiceTest {
     private User userToDelete;
 
     @Mock
-    private User adminToDelete;
+    private User superUser;
 
     @Mock
     private User userToUpdate;
@@ -94,95 +90,84 @@ class UserServiceTest {
 
     private User currentUser;
     private UserDto inputDto;
+    private User currentUserSuper;
+    private User currentUserAdmin;
+    private RegisterUserDto registerUserDtoAdmin;
+    private RegisterUserDto registerUserDtoReader;
 
     @BeforeEach
     void setUp() {
 
         MockitoAnnotations.openMocks(this);
-        SecurityContext securityContext = mock(SecurityContext.class);
-        SecurityContextHolder.setContext(securityContext);
+        mockSecurityContext();
+        initCurrentUser();
+        userService = new UserService(userRepository, passwordEncoder, strategyFactory);
+        initInputDto();
 
-        Authentication authentication = mock(Authentication.class);
+        // Setup mock users
+        currentUser = new User();
+        currentUser.setUsername("currentUser");
+        currentUser.setRole(Role.ADMIN);
+
+        userToDelete = new User();
+        userToDelete.setUsername("userToDelete");
+        userToDelete.setRole(Role.READER);
+
+        // Initialize test data
+        currentUserSuper = new User("superUser", "super@example.com", "encodedPassword", Role.SUPER);
+        currentUserAdmin = new User("adminUser", "admin@example.com", "encodedPassword", Role.ADMIN);
+
+        registerUserDtoAdmin = new RegisterUserDto("newAdmin", "admin2@example.com", "password", Role.ADMIN);
+        registerUserDtoReader = new RegisterUserDto("newReader", "reader@example.com", "password", Role.READER);
+    }
+
+    private void mockSecurityContext() {
         when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getPrincipal()).thenReturn(userDetails);
+        SecurityContextHolder.setContext(securityContext);
+    }
 
+    private void initCurrentUser() {
         currentUser = new User("currentUser", "currentUser@example.com", "password", Role.ADMIN);
-        adminToDelete = new User("adminToDelete", "adminToDelete@example.com", "password", Role.ADMIN);
-        when(authentication.getPrincipal()).thenReturn(currentUser);
+        when(userDetails.getUsername()).thenReturn("adminUser");
+        when(userRepository.findByUsername("adminUser")).thenReturn(Optional.of(currentUser));
+    }
 
-        deleteStrategiesMap = new HashMap<>();
-        deleteStrategiesMap.put("username", deleteStrategy);
-        updateStrategiesMap = new HashMap<>();
-        updateStrategiesMap.put("username", updateStrategy);
-        userService = new UserService(userRepository, passwordEncoder, updateStrategiesMap, deleteStrategiesMap);
-
+    private void initInputDto() {
         inputDto = new UserDto();
         inputDto.setUsername("newUser");
         inputDto.setEmail("newUser@example.com");
         inputDto.setRole(Role.READER);
-
-        SecurityContextHolder.setContext(securityContext);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getPrincipal()).thenReturn(userDetails);
-        when(userDetails.getUsername()).thenReturn("adminUser");
-
-        when(userRepository.findByUsername("adminUser")).thenReturn(Optional.of(currentUser));
-        when(userRepository.findByUsername("userToDelete")).thenReturn(Optional.of(userToDelete));
-        when(userRepository.findByUsername("adminToDelete")).thenReturn(Optional.of(adminToDelete));
-
-        deleteStrategiesMap = new HashMap<>();
-        deleteStrategiesMap.put("id", deleteStrategy);
-        deleteStrategiesMap.put("username", deleteStrategy);
-        deleteStrategiesMap.put("email", deleteStrategy);
-
-        updateStrategiesMap = new HashMap<>();
-        updateStrategiesMap.put("id", updateStrategy);
-        updateStrategiesMap.put("username", updateStrategy);
-        updateStrategiesMap.put("email", updateStrategy);
-
-        userService = new UserService(userRepository, passwordEncoder, updateStrategiesMap, deleteStrategiesMap);
-
-        currentUser = new User();
-        userToDelete = new User();
-        adminToDelete = new User();
-        userToUpdate = new User();
-
     }
 
     private void mockCurrentUser(User user) {
-
         if (user == null) {
-
             SecurityContextHolder.clearContext();
-            when(securityContext.getAuthentication()).thenReturn(null);
-
         } else {
-
-            UserDetails userDetails = mock(UserDetails.class);
             when(userDetails.getUsername()).thenReturn(user.getUsername());
-
-            SecurityContextHolder.setContext(securityContext);
-
-            when(authentication.getPrincipal()).thenReturn(userDetails);
-            when(securityContext.getAuthentication()).thenReturn(authentication);
-
             when(userRepository.findByUsername(user.getUsername())).thenReturn(Optional.of(user));
         }
     }
+
 
     @Test
     void testGetCurrentUser_userFound() {
         // Arrange
         String username = "testUser";
         User expectedUser = new User();
+        mockCurrentUser(currentUser);
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(userDetails.getUsername()).thenReturn(username);
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(expectedUser));
 
         // Act
-        SecurityContextHolder.setContext(securityContext);
-        User actualUser = userService.getCurrentUser();
+        Optional<User> actualUserOpt = userService.getCurrentUser();
+        if (actualUserOpt.isEmpty()) {
+          fail();
+        }
 
+        User actualUser = actualUserOpt.get();
         // Assert
         assertEquals(expectedUser, actualUser);
     }
@@ -191,16 +176,18 @@ class UserServiceTest {
     void testGetCurrentUser_userNotFoundWithUsername() {
         // Arrange
         String username = "testUser";
+        User currentUser = new User();
+
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(userDetails.getUsername()).thenReturn(username);
         when(userRepository.findByUsername(username)).thenReturn(Optional.empty());
 
         // Act
-        User currentUser = userService.getCurrentUser();
+        Optional<User> actualUserOpt = userService.getCurrentUser();
 
         // Assert
-        assertNull(currentUser);
+        assertTrue(actualUserOpt.isEmpty());
         verify(userRepository, times(1)).findByUsername(username);
     }
 
@@ -209,10 +196,10 @@ class UserServiceTest {
         // Arrange
         when(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).thenReturn("aaaa");
         // Act
-        User currentUSerInCharge = userService.getCurrentUser();
+        Optional<User> currentUSerInChargeOpt = userService.getCurrentUser();
 
         // Assert
-        assertNull(currentUSerInCharge);
+        assertTrue(currentUSerInChargeOpt.isEmpty());
         verify(userRepository, never()).findByUsername(anyString());
     }
 
@@ -226,8 +213,8 @@ class UserServiceTest {
         when(userRepository.getReferenceById(Integer.parseInt(identifier))).thenReturn(user);
 
         // Act
-        User result = userService.getUserByIdentifier(identifier, type);
-
+        Optional<User> resultOpt = userService.getUserByIdentifier(identifier, type);
+        User result = resultOpt.get();
         // Assert
         assertEquals(user, result);
         verify(userRepository, times(1)).getReferenceById(Integer.parseInt(identifier));
@@ -242,8 +229,11 @@ class UserServiceTest {
         when(userRepository.getReferenceById(Integer.parseInt(identifier)))
                 .thenThrow(new EntityNotFoundException());
 
-        // Act & Assert
-        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        // Act
+        Optional<User> result = userService.getUserByIdentifier(identifier, type);
+
+        // Assert
+        assertTrue(result.isEmpty());
         verify(userRepository, times(1)).getReferenceById(Integer.parseInt(identifier));
     }
 
@@ -253,8 +243,11 @@ class UserServiceTest {
         String type = "id";
         String identifier = "invalid";
 
-        // Act & Assert
-        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        // Act
+        Optional<User> result = userService.getUserByIdentifier(identifier, type);
+
+        // Assert
+        assertTrue(result.isEmpty());
         verify(userRepository, times(0)).getReferenceById(anyInt());  // Should not call repository
     }
 
@@ -268,8 +261,8 @@ class UserServiceTest {
         when(userRepository.findByUsername(identifier)).thenReturn(Optional.of(user));
 
         // Act
-        User result = userService.getUserByIdentifier(identifier, type);
-
+        Optional<User> resultOpt = userService.getUserByIdentifier(identifier, type);
+        User result = resultOpt.get();
         // Assert
         assertEquals(user, result);
         verify(userRepository, times(1)).findByUsername(identifier);
@@ -283,8 +276,11 @@ class UserServiceTest {
 
         when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
 
-        // Act & Assert
-        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        // Act
+        Optional<User> result = userService.getUserByIdentifier(identifier, type);
+
+        // Assert
+        assertTrue(result.isEmpty());
         verify(userRepository, times(1)).findByUsername(identifier);
     }
 
@@ -298,7 +294,8 @@ class UserServiceTest {
         when(userRepository.findByEmail(identifier)).thenReturn(Optional.of(user));
 
         // Act
-        User result = userService.getUserByIdentifier(identifier, type);
+        Optional<User> resultOpt = userService.getUserByIdentifier(identifier, type);
+        User result = resultOpt.get();
 
         // Assert
         assertEquals(user, result);
@@ -313,8 +310,11 @@ class UserServiceTest {
 
         when(userRepository.findByEmail(identifier)).thenReturn(Optional.empty());
 
-        // Act & Assert
-        assertThrows(UserNotFoundException.class, () -> userService.getUserByIdentifier(identifier, type));
+        // Act
+        Optional<User> result = userService.getUserByIdentifier(identifier, type);
+
+        // Assert
+        assertTrue(result.isEmpty());
         verify(userRepository, times(1)).findByEmail(identifier);
     }
 
@@ -326,7 +326,7 @@ class UserServiceTest {
         );
 
         assertEquals("Invalid identifier type: invalidType", exception.getMessage());
-        verify(userRepository, times(0)).getReferenceById(anyInt());  // Should not call repository
+        verify(userRepository, times(0)).getReferenceById(anyInt());
         verify(userRepository, times(0)).findByUsername(anyString());
         verify(userRepository, times(0)).findByEmail(anyString());
     }
@@ -367,404 +367,239 @@ class UserServiceTest {
     }
 
     @Test
-    void createUserNonAdmin_InvalidRole_ReturnsForbidden() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.ADMIN);
+    void testCreateUser_SuperCreatesAdmin() {
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUserSuper));
+        when(userRepository.findByEmail(registerUserDtoAdmin.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(registerUserDtoAdmin.getUsername())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(registerUserDtoAdmin.getPassword())).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
-        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
+        ResponseEntity<UserDto> response = userService.createUser(registerUserDtoAdmin);
 
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNull(response.getBody());
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(registerUserDtoAdmin.getUsername(), response.getBody().getUsername());
     }
 
     @Test
-    void createUserNonAdmin_UserAlreadyExists_ReturnsForbidden() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
-        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.of(new User()));
-        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
+    void testCreateUser_SuperCreatesReader() {
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUserSuper));
+        when(userRepository.findByEmail(registerUserDtoReader.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(registerUserDtoReader.getUsername())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(registerUserDtoReader.getPassword())).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
-        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
+        ResponseEntity<UserDto> response = userService.createUser(registerUserDtoReader);
 
-        // Assert
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(registerUserDtoReader.getUsername(), response.getBody().getUsername());
+    }
+
+    @Test
+    void testCreateUser_AdminCreatesReader() {
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUserAdmin));
+        when(userRepository.findByEmail(registerUserDtoReader.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.findByUsername(registerUserDtoReader.getUsername())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(registerUserDtoReader.getPassword())).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ResponseEntity<UserDto> response = userService.createUser(registerUserDtoReader);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(registerUserDtoReader.getUsername(), response.getBody().getUsername());
+    }
+
+    @Test
+    void testCreateUser_AdminCreatesAdminShouldFail() {
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUserAdmin));
+
+        ResponseEntity<UserDto> response = userService.createUser(registerUserDtoAdmin);
+
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNull(response.getBody());
+    }
+
+    @Test
+    void testCreateUser_UserAlreadyExists() {
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUserSuper));
+        when(userRepository.findByEmail(registerUserDtoReader.getEmail())).thenReturn(Optional.of(new User()));
+        when(userRepository.findByUsername(registerUserDtoReader.getUsername())).thenReturn(Optional.empty());
+
+        ResponseEntity<UserDto> response = userService.createUser(registerUserDtoReader);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(userRepository, times(0)).save(any(User.class));
         assertEquals("User already in the database", response.getHeaders().getFirst("Error-Message"));
     }
 
     @Test
-    void createUserNonAdmin_Role_Reader_UserDoesNotExist_CreatesAndReturnsUser() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
-        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.empty());
-        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
-        User savedUser = new User(input.getUsername(), input.getEmail(), "encodedPassword", Role.READER);
-        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+    void testCreateUser_NoCurrentUser() {
+        when(userService.getCurrentUser()).thenReturn(Optional.empty());
 
-        // Act
-        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
+        ResponseEntity<UserDto> response = userService.createUser(registerUserDtoReader);
 
-        // Assert
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(input.getUsername(), response.getBody().getUsername());
-        assertEquals(input.getEmail(), response.getBody().getEmail());
-        assertEquals(input.getRole(), response.getBody().getRole());
-    }
-
-    @Test
-    void createUserNonAdmin_Role_Guest_UserDoesNotExist_CreatesAndReturnsUser() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.GUEST);
-        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.empty());
-        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
-        User savedUser = new User(input.getUsername(), input.getEmail(), "encodedPassword", Role.GUEST);
-        when(userRepository.save(any(User.class))).thenReturn(savedUser);
-
-        // Act
-        ResponseEntity<UserDto> response = userService.createUserNonAdmin(input);
-
-        // Assert
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(input.getUsername(), response.getBody().getUsername());
-        assertEquals(input.getEmail(), response.getBody().getEmail());
-        assertEquals(input.getRole(), response.getBody().getRole());
-    }
-
-    @Test
-    void createAdministrator_InvalidRole_ReturnsForbidden() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
-
-        // Act
-        ResponseEntity<UserDto> response = userService.createAdministrator(input);
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNull(response.getBody());
-    }
-
-    @Test
-    void createAdministrator_UserAlreadyExists_ReturnsForbidden() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.ADMIN);
-        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.of(new User()));
-        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
-
-        // Act
-        ResponseEntity<UserDto> response = userService.createAdministrator(input);
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertNull(response.getBody());
-        assertEquals("User already in the database", response.getHeaders().getFirst("Error-Message"));
-    }
-
-    @Test
-    void createAdministrator_UserDoesNotExist_CreatesAndReturnsUser() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.ADMIN);
-        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.empty());
-        when(userRepository.findByUsername(input.getUsername())).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
-        User savedUser = new User(input.getUsername(), input.getEmail(), "encodedPassword", Role.ADMIN);
-        when(userRepository.save(any(User.class))).thenReturn(savedUser);
-
-        // Act
-        ResponseEntity<UserDto> response = userService.createAdministrator(input);
-
-        // Assert
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(input.getUsername(), response.getBody().getUsername());
-        assertEquals(input.getEmail(), response.getBody().getEmail());
-        assertEquals(input.getRole(), response.getBody().getRole());
-    }
-
-    @Test
-    void testDeleteUser_IdentifierIsId_success_sameUser() throws IOException {
-        // Arrange
-        currentUser.setUsername("sameUser");
-        currentUser.setRole(Role.ADMIN);
-        userToDelete.setUsername("sameUser");
-        userToDelete.setRole(Role.ADMIN);
-        mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(userToDelete);
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteUser("1", "id");
-
-        // Assert
-        verify(deleteStrategy).delete(userToDelete);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void testDeleteUser_IdentifierIsUsername_Success_SameUser() throws IOException {
-        // Arrange
-        currentUser.setUsername("sameUser");
-        currentUser.setRole(Role.ADMIN);
-        userToDelete.setUsername("sameUser");
-        userToDelete.setRole(Role.ADMIN);
-        mockCurrentUser(currentUser);
-
-        when(userRepository.findByUsername("sameUser")).thenReturn(Optional.of(userToDelete));
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteUser("sameUser", "username");
-
-        // Assert
-        verify(deleteStrategy).delete(userToDelete);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void testDeleteUser_IdentifierIsEmail_Success_SameUser() throws IOException {
-        // Arrange
-        currentUser.setUsername("sameUser");
-        currentUser.setEmail("sameUser@email.com");
-        currentUser.setRole(Role.ADMIN);
-
-        userToDelete.setUsername("sameUser");
-        userToDelete.setEmail("sameUser@email.com");
-        userToDelete.setRole(Role.ADMIN);
-
-
-        mockCurrentUser(currentUser);
-
-        when(userRepository.findByEmail("sameUser@email.com")).thenReturn(Optional.of(userToDelete));
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteUser("sameUser@email.com", "email");
-
-        // Assert
-        verify(deleteStrategy).delete(userToDelete);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void testDeleteUser_Success_HigherRank() throws IOException {
-        // Arrange
-        currentUser.setUsername("admin");
-        currentUser.setRole(Role.ADMIN);
-
-        userToDelete.setUsername("user");
-        userToDelete.setRole(Role.READER);
-
-        mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(userToDelete);
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteUser("1", "id");
-
-        // Assert
-        verify(deleteStrategy).delete(userToDelete);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void testDeleteUser_NoPermission() throws IOException {
-        // Arrange
-        currentUser.setUsername("user1");
-        currentUser.setRole(Role.READER);
-
-        userToDelete.setUsername("user2");
-        userToDelete.setRole(Role.ADMIN);
-
-        mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(userToDelete);
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteUser("1", "id");
-
-        // Assert
-        verify(deleteStrategy, never()).delete(userToDelete);
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
     @Test
     void testDeleteUser_StrategyNotFound() throws IOException {
+        // Arrange
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(null);
+
         // Act
-        ResponseEntity<Void> response = userService.deleteUser("testIdentifier", "INVALID_TYPE");
+        ResponseEntity<Void> response = userService.deleteUser("4", "id");
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
-    void testDeleteUser_UserNotFound() throws IOException {
+    void testDeleteUser_CurrentUserNotFound() throws IOException {
         // Arrange
-        User currentUser = new User();
-        currentUser.setUsername("currentUser");
-        currentUser.setRole(Role.ADMIN);
-
-        mockCurrentUser(currentUser);
-
-        when(userRepository.findByUsername("sameUser")).thenThrow(new EntityNotFoundException("User not found", null));
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.empty());
 
         // Act
-        ResponseEntity<Void> response = userService.deleteUser("nonExistingUser", "username");
+        ResponseEntity<Void> response = userService.deleteUser("4", "id");
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
     @Test
-    void testDeleteUser_IllegalArgument() throws IOException {
+    void testDeleteUser_UserToDeleteNotFound() throws IOException {
         // Arrange
-        mockCurrentUser(currentUser);
-        when(userService.getUserByIdentifier("1", "id")).thenThrow(new IllegalArgumentException("Invalid identifier"));
+        String identifier = "123";
+        String type = "username";
+
+        when(strategyFactory.getDeleteStrategy(type)).thenReturn(deleteStrategy);
+        when(userService.getUserByIdentifier(identifier, type)).thenReturn(Optional.empty());
 
         // Act
-        ResponseEntity<Void> response = userService.deleteUser("1", "id");
+        ResponseEntity<Void> response = userService.deleteUser(identifier, type);
 
         // Assert
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        verify(deleteStrategy, never()).delete(any(User.class));
     }
 
     @Test
-    void testDeleteUser_IOException() throws IOException {
+    void testDeleteUser_ForbiddenToDeleteAdmin_ByNonSuper() throws IOException {
         // Arrange
-        currentUser.setUsername("sameUser");
         currentUser.setRole(Role.ADMIN);
-        userToDelete.setUsername("sameUser");
-        userToDelete.setRole(Role.GUEST);
-        mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("5", "id")).thenReturn(userToDelete);
-        doThrow(new IOException("IO Exception")).when(deleteStrategy).delete(userToDelete);
+        userToDelete.setRole(Role.ADMIN);
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userRepository.getReferenceById(4)).thenReturn(userToDelete);
 
         // Act
-        ResponseEntity<Void> response = userService.deleteUser("5", "id");
+        ResponseEntity<Void> response = userService.deleteUser("4", "id");
 
         // Assert
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-    }
-
-    @Test
-    void testDeleteAdministrator_IdentifierIsUsername_success_sameUser() throws IOException {
-        // Arrange
-        currentUser.setUsername("sameUser");
-        currentUser.setRole(Role.ADMIN);
-        adminToDelete.setUsername("sameUser");
-        adminToDelete.setRole(Role.ADMIN);
-        mockCurrentUser(currentUser);
-        when(userRepository.findByUsername("adminToDelete")).thenReturn(Optional.of(adminToDelete));
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteAdministrator("adminToDelete", "username");
-
-        // Assert
-        verify(deleteStrategy).delete(adminToDelete);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void testDeleteAdministrator_success_higherRank() throws IOException {
-        // Arrange
-        currentUser.setUsername("admin");
-        currentUser.setRole(Role.SUPER);
-
-        adminToDelete.setUsername("user");
-        adminToDelete.setRole(Role.ADMIN);
-
-        mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(adminToDelete);
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteAdministrator("1", "id");
-
-        // Assert
-        verify(deleteStrategy).delete(adminToDelete);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void testDeleteAdministrator_NoPermission() throws IOException {
-        // Arrange
-        currentUser.setUsername("user1");
-        currentUser.setRole(Role.READER);
-
-        adminToDelete.setUsername("user2");
-        adminToDelete.setRole(Role.ADMIN);
-
-        mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(adminToDelete);
-
-        // Act
-        ResponseEntity<Void> response = userService.deleteAdministrator("1", "id");
-
-        // Assert
-        verify(deleteStrategy, never()).delete(adminToDelete);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(deleteStrategy, never()).delete(any(User.class));
     }
 
     @Test
-    void testDeleteAdministrator_StrategyNotFound() throws IOException {
+    void testDeleteUser_AdminDeletingSelf() throws IOException {
+        // Arrange
+        currentUser = new User();
+        currentUser.setUsername("adminUser");
+        currentUser.setRole(Role.ADMIN);
+
+        when(strategyFactory.getDeleteStrategy("username")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userService.getUserByIdentifier("adminUser", "username")).thenReturn(Optional.of(currentUser));
 
         // Act
-        ResponseEntity<Void> response = userService.deleteAdministrator("testIdentifier", "INVALID_TYPE");
+        ResponseEntity<Void> response = userService.deleteUser("adminUser", "username");
 
         // Assert
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(deleteStrategy, times(1)).delete(currentUser);
     }
 
     @Test
-    void testDeleteAdministrator_userNotFound() throws IOException {
+    void testDeleteUser_SuperUserDeletingAdmin() throws IOException {
+        // Arrange
+        currentUser.setRole(Role.SUPER);
+        mockCurrentUser(currentUser);
+        userToDelete.setRole(Role.ADMIN);
+
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userRepository.getReferenceById(7)).thenReturn(userToDelete);
+
+        // Act
+        ResponseEntity<Void> response = userService.deleteUser("7", "id");
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(deleteStrategy, times(1)).delete(userToDelete);
+    }
+
+    @Test
+    void testDeleteUser_ForbiddenToDelete_ByPermissionCheck() throws IOException {
         // Arrange
         User currentUser = new User();
-        currentUser.setUsername("currentUser");
-        currentUser.setRole(Role.ADMIN);
-
+        currentUser.setRole(Role.READER);
+        currentUser.setUsername("testuser");
         mockCurrentUser(currentUser);
 
-        when(userRepository.findByUsername("newAdmin")).thenThrow(new EntityNotFoundException("User not found", null));
+        userToDelete.setRole(Role.GUEST);
+
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userRepository.getReferenceById(4)).thenReturn(userToDelete);
 
         // Act
-        ResponseEntity<Void> response = userService.deleteUser("nonExistingAdmin", "username");
+        ResponseEntity<Void> response = userService.deleteUser("4", "id");
 
         // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(deleteStrategy, never()).delete(any(User.class));
     }
 
     @Test
-    void testDeleteAdministrator_IllegalArgument() throws IOException {
+    void testDeleteUser_Success() throws IOException {
         // Arrange
-        mockCurrentUser(currentUser);
-        when(userService.getUserByIdentifier("1", "id")).thenThrow(new IllegalArgumentException("Invalid identifier"));
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userRepository.getReferenceById(4)).thenReturn(userToDelete);
 
         // Act
-        ResponseEntity<Void> response = userService.deleteAdministrator("1", "id");
+        ResponseEntity<Void> response = userService.deleteUser("4", "id");
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(deleteStrategy, times(1)).delete(userToDelete);
+    }
+
+    @Test
+    void testDeleteUser_IllegalArgumentExceptionCaught() throws IOException {
+        // Arrange
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userRepository.getReferenceById(4)).thenReturn(userToDelete);
+
+        doThrow(new IllegalArgumentException("Invalid argument")).when(deleteStrategy).delete(userToDelete);
+
+        // Act
+        ResponseEntity<Void> response = userService.deleteUser("4", "id");
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
-    void testDeleteAdministrator_IOException() throws IOException {
+    void testDeleteUser_IOExceptionCaught() throws IOException {
         // Arrange
-        currentUser.setUsername("sameUser");
-        currentUser.setRole(Role.ADMIN);
-        adminToDelete.setUsername("sameUser");
-        adminToDelete.setRole(Role.ADMIN);
-        mockCurrentUser(currentUser);
+        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userRepository.getReferenceById(4)).thenReturn(userToDelete);
 
-        when(userService.getUserByIdentifier("5", "id")).thenReturn(adminToDelete);
-        doThrow(new IOException("IO Exception")).when(deleteStrategy).delete(adminToDelete);
+        doThrow(new IOException("IO error")).when(deleteStrategy).delete(userToDelete);
 
         // Act
-        ResponseEntity<Void> response = userService.deleteAdministrator("5", "id");
+        ResponseEntity<Void> response = userService.deleteUser("4", "id");
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
@@ -772,7 +607,6 @@ class UserServiceTest {
 
     @Test
     void testUpdateUser_Success() throws IOException {
-
         // Arrange
         UserDto newDetails = new UserDto("newUsername", "newEmail", Role.GUEST);
         User newUserDetails = new User(newDetails);
@@ -780,60 +614,66 @@ class UserServiceTest {
         currentUser.setUsername("currentUser");
         currentUser.setRole(Role.ADMIN);
 
-        userToUpdate.setRole(Role.READER);
+        User userToBeUpdated = new User();
+        userToBeUpdated.setEmail("updateuser@email.com");
+        userToBeUpdated.setRole(Role.READER);
 
         mockCurrentUser(currentUser);
-        when(userRepository.findByEmail("updateuser@email.com")).thenReturn(Optional.of(userToUpdate));
+        when(strategyFactory.getUpdateStrategy("email")).thenReturn(updateStrategy);
+        when(userRepository.findByEmail("updateuser@email.com")).thenReturn(Optional.of(userToBeUpdated));
 
         // Act
         ResponseEntity<Void> response = userService.updateUser("updateuser@email.com", "email", newDetails);
 
         // Assert
-        verify(updateStrategy).update(userToUpdate, newUserDetails, null);
+        verify(updateStrategy).update(userToBeUpdated, newUserDetails, null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
     @Test
     void testUpdateUser_IdentifierIsEmail_Success_SameUser() throws IOException {
         // Arrange
-        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
-        User newUserDetails = new User(newDetails);
-        currentUser.setUsername("sameUser");
-        currentUser.setEmail("sameUser@email.com");
-        currentUser.setRole(Role.GUEST);
+        currentUser = new User();
+        currentUser.setUsername("user1");
+        currentUser.setRole(Role.READER);
 
+        inputDto = new UserDto();
+        inputDto.setUsername("user1");
         mockCurrentUser(currentUser);
 
-        when(userRepository.findByEmail("sameUser@email.com")).thenReturn(Optional.of(currentUser));
+        when(strategyFactory.getUpdateStrategy("id")).thenReturn(updateStrategy);
+        when(userRepository.getReferenceById(4)).thenReturn(currentUser);
 
         // Act
-        ResponseEntity<Void> response = userService.updateUser("sameUser@email.com", "email", newDetails);
+        ResponseEntity<Void> response = userService.updateUser("4", "id", inputDto);
 
         // Assert
-        verify(updateStrategy).update(currentUser, newUserDetails, null);
+        verify(updateStrategy, times(1)).update(eq(currentUser), any(User.class), eq(null));
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
     @Test
     void testUpdateUser_Success_HigherRank() throws IOException {
         // Arrange
-        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.GUEST);
         User newUserDetails = new User(newDetails);
-        currentUser.setUsername("super");
+        User currentUser = new User();
+        currentUser.setUsername("currentUser");
         currentUser.setRole(Role.SUPER);
 
-        userToUpdate.setUsername("user");
-        userToUpdate.setRole(Role.GUEST);
+        User userToBeUpdated = new User();
+        userToBeUpdated.setEmail("updateuser@email.com");
+        userToBeUpdated.setRole(Role.READER);
 
         mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(userToUpdate);
+        when(strategyFactory.getUpdateStrategy("email")).thenReturn(updateStrategy);
+        when(userRepository.findByEmail("updateuser@email.com")).thenReturn(Optional.of(userToBeUpdated));
 
         // Act
-        ResponseEntity<Void> response = userService.deleteUser("1", "id");
+        ResponseEntity<Void> response = userService.updateUser("updateuser@email.com", "email", newDetails);
 
         // Assert
-        verify(updateStrategy).update(userToUpdate, newUserDetails, null);
+        verify(updateStrategy).update(userToBeUpdated, newUserDetails, null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
@@ -848,21 +688,17 @@ class UserServiceTest {
     }
 
     @Test
-    public void testUpdateUser_UserNotFound_Throw_UserNotFoundException() throws IOException {
-
+    public void testUpdateUser_UserNotFound() throws IOException {
         // Arrange
-        User currentUser = new User();
-        currentUser.setUsername("currentUser");
-        currentUser.setRole(Role.ADMIN);
+        currentUser = new User();
+        currentUser.setUsername("user1");
+        currentUser.setRole(Role.READER);
 
-        UserDto input = new UserDto();
-
-        mockCurrentUser(currentUser);
-
-        when(userRepository.findByUsername("sameUser")).thenThrow(new EntityNotFoundException("User not found", null));
-
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userRepository.findByUsername("user1")).thenReturn(Optional.empty());
         // Act
-        ResponseEntity<Void> response = userService.updateUser("nonExistingUser", "username", input);
+        ResponseEntity<Void> response = userService.updateUser("user1", "username", inputDto);
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
@@ -874,19 +710,22 @@ class UserServiceTest {
         currentUser.setUsername("user1");
         currentUser.setRole(Role.READER);
 
-        userToUpdate.setRole(Role.ADMIN);
+        User userToBeUpdated = new User();
+        userToBeUpdated.setEmail("updateuser@email.com");
+        userToBeUpdated.setRole(Role.ADMIN);
 
         UserDto input = new UserDto();
 
         mockCurrentUser(currentUser);
 
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(userToUpdate);
+        when(strategyFactory.getUpdateStrategy("email")).thenReturn(updateStrategy);
+        when(userService.getUserByIdentifier("updateuser@email.com", "email")).thenReturn(Optional.of(userToUpdate));
 
         // Act
-        ResponseEntity<Void> response = userService.updateUser("1", "id", input);
+        ResponseEntity<Void> response = userService.updateUser("updateuser@email.com", "email", input);
 
         // Assert
-        verify(updateStrategy, never()).update(userToUpdate, new User(input), null);
+        verify(updateStrategy, never()).update(userToBeUpdated, new User(input), null);
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 
@@ -894,7 +733,9 @@ class UserServiceTest {
     void testUpdateUser_IllegalArgument() throws IOException {
         // Arrange
         mockCurrentUser(currentUser);
-        when(userService.getUserByIdentifier("1", "id")).thenThrow(new IllegalArgumentException("Invalid identifier"));
+
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+        when(userRepository.getReferenceById(1)).thenThrow(new IllegalArgumentException("Invalid identifier"));
 
         // Act
         ResponseEntity<Void> response = userService.updateUser("1", "id", new UserDto());
@@ -904,94 +745,158 @@ class UserServiceTest {
     }
 
     @Test
-    void testUpdateAdministrator_Success() throws IOException {
-
+    void testUpdateUser_SuperUpdatingAdmin_ShouldReturnOk() throws IOException {
         // Arrange
         UserDto newDetails = new UserDto("newUsername", "newEmail", Role.GUEST);
-        User newUserDetails = new User(newDetails);
-        User currentUser = new User();
-        currentUser.setUsername("currentUser");
-        currentUser.setRole(Role.SUPER);
+        User superUser = new User("superUser", "super@example.com", "encodedPassword", Role.SUPER);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(superUser));
 
-        userToUpdate.setRole(Role.ADMIN);
+        User adminUser = new User("adminUser", "admin@example.com", "encodedPassword", Role.ADMIN);
 
-        mockCurrentUser(currentUser);
-        when(userRepository.findByEmail("updateuser@email.com")).thenReturn(Optional.of(userToUpdate));
+        when(userService.getUserByIdentifier("adminUser", "username")).thenReturn(Optional.of(adminUser));
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
 
         // Act
-        ResponseEntity<Void> response = userService.updateAdministrator("updateuser@email.com", "email", newDetails);
+        ResponseEntity<Void> response = userService.updateUser("adminUser", "username", newDetails);
 
         // Assert
-        verify(updateStrategy).update(userToUpdate, newUserDetails, null);
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(updateStrategy, times(1)).update(eq(adminUser), any(User.class), isNull());
     }
 
+    @Test
+    void testUpdateUser_AdminUpdatingSelf_ShouldReturnOk() throws IOException {
+        // Arrange
+        User adminUser = new User("adminUser", "admin@example.com", "encodedPassword", Role.ADMIN);
 
+        when(userService.getCurrentUser()).thenReturn(Optional.of(adminUser));
+        when(userService.getUserByIdentifier("adminUser", "username")).thenReturn(Optional.of(adminUser));
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.ADMIN);
+
+        // Act
+        ResponseEntity<Void> response = userService.updateUser("adminUser", "username", newDetails);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(updateStrategy, times(1)).update(eq(adminUser), any(User.class), isNull());
+    }
 
     @Test
-    public void testUpdateAdministrator_NoStrategyType() throws IOException {
+    void testUpdateUser_AdminUpdatingAnotherAdmin_ShouldReturnForbidden() throws IOException {
+        // Arrange
+        User adminUser = new User();
+        adminUser.setUsername("adminUser");
+        adminUser.setRole(Role.ADMIN);
+
+        User anotherAdminUser = new User();
+        anotherAdminUser.setUsername("anotherAdminUser");
+        anotherAdminUser.setRole(Role.ADMIN);
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(adminUser));
+        when(userService.getUserByIdentifier("anotherAdminUser", "username")).thenReturn(Optional.of(anotherAdminUser));
+
+        ResponseEntity<Void> response = userService.updateUser("anotherAdminUser", "username", new UserDto());
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(updateStrategy, never()).update(any(User.class), any(User.class), any());
+    }
+
+    @Test
+    void testUpdateUser_ReaderUpdatingAdmin_ShouldReturnForbidden() throws IOException {
+        // Arrange
+        User currentUser = new User();
+        currentUser.setUsername("currentUser");
+        currentUser.setRole(Role.READER);
+        mockCurrentUser(currentUser);
+
+        User adminUser = new User();
+        adminUser.setUsername("adminUser");
+        adminUser.setRole(Role.ADMIN);
+
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userService.getUserByIdentifier("adminUser", "username")).thenReturn(Optional.of(adminUser));
+
         // Act
-        UserDto input = new UserDto();
-        ResponseEntity<Void> response = userService.updateAdministrator("testIdentifier", "INVALID_TYPE", input);
+        ResponseEntity<Void> response = userService.updateUser("adminUser", "username", new UserDto());
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verify(updateStrategy, never()).update(any(User.class), any(User.class), any());
+    }
+
+    @Test
+    void updateUser_ShouldReturnBadRequest_WhenIllegalArgumentExceptionIsThrown() throws IOException {
+        // Arrange
+        doThrow(new IllegalArgumentException("Invalid argument")).when(updateStrategy).update(any(User.class), any(User.class), any());
+
+        // Act
+        ResponseEntity<Void> response = userService.updateUser("identifier", "type", inputDto);
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
-    public void testUpdateAdministrator_UserNotFound_Throw_UserNotFoundException() throws IOException {
-
+    void testUpdateUser_UserNotFoundException_ShouldReturnNotFound() throws IOException {
         // Arrange
-        User currentUser = new User();
-        currentUser.setUsername("currentUser");
-        currentUser.setRole(Role.ADMIN);
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+        User currentUser = new User("superUser", "super@example.com", "encodedPassword", Role.SUPER);
+        User userToUpdate = new User("userToUpdate", "update@example.com", "encodedPassword", Role.READER);
 
-        UserDto input = new UserDto();
-
-        mockCurrentUser(currentUser);
-
-        when(userRepository.findByUsername("sameUser")).thenThrow(new EntityNotFoundException("User not found", null));
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userService.getUserByIdentifier("userToUpdate", "username")).thenReturn(Optional.of(userToUpdate));
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+        doThrow(new UserNotFoundException("User not found", null)).when(updateStrategy).update(eq(userToUpdate), any(User.class), isNull());
 
         // Act
-        ResponseEntity<Void> response = userService.updateAdministrator("nonExistingUser", "username", input);
+        ResponseEntity<Void> response = userService.updateUser("userToUpdate", "username", newDetails);
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 
     @Test
-    void testUpdateAdministrator_NoPermission() throws IOException {
+    void testUpdateUser_IllegalArgumentException_ShouldReturnBadRequest() throws IOException {
         // Arrange
-        currentUser.setUsername("user1");
-        currentUser.setRole(Role.READER);
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+        User currentUser = new User("superUser", "super@example.com", "encodedPassword", Role.SUPER);
+        User userToUpdate = new User("userToUpdate", "update@example.com", "encodedPassword", Role.READER);
 
-        userToUpdate.setRole(Role.ADMIN);
-
-        UserDto input = new UserDto();
-
-        mockCurrentUser(currentUser);
-
-        when(userService.getUserByIdentifier("1", "id")).thenReturn(userToUpdate);
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userService.getUserByIdentifier("userToUpdate", "username")).thenReturn(Optional.of(userToUpdate));
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+        doThrow(new IllegalArgumentException("Invalid input")).when(updateStrategy).update(eq(userToUpdate), any(User.class), isNull());
 
         // Act
-        ResponseEntity<Void> response = userService.updateAdministrator("1", "id", input);
-
-        // Assert
-        verify(updateStrategy, never()).update(userToUpdate, new User(input), null);
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-    }
-
-    @Test
-    void testUpdateAdministrator_IllegalArgument() throws IOException {
-        // Arrange
-        mockCurrentUser(currentUser);
-        when(userService.getUserByIdentifier("1", "id")).thenThrow(new IllegalArgumentException("Invalid identifier"));
-
-        // Act
-        ResponseEntity<Void> response = userService.updateAdministrator("1", "id", new UserDto());
+        ResponseEntity<Void> response = userService.updateUser("userToUpdate", "username", newDetails);
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void testUpdateUser_IOException_ShouldReturnInternalServerError() throws IOException {
+        // Arrange
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+        User currentUser = new User("superUser", "super@example.com", "encodedPassword", Role.SUPER);
+        User userToUpdate = new User("userToUpdate", "update@example.com", "encodedPassword", Role.READER);
+
+        // Mock current user and user to update
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userService.getUserByIdentifier("userToUpdate", "username")).thenReturn(Optional.of(userToUpdate));
+
+        // Mock update strategy and simulate IOException
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
+        doThrow(new IOException("I/O error occurred")).when(updateStrategy).update(eq(userToUpdate), any(User.class), isNull());
+
+        // Act
+        ResponseEntity<Void> response = userService.updateUser("userToUpdate", "username", newDetails);
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
 
     @Test
@@ -1041,9 +946,7 @@ class UserServiceTest {
         ResponseEntity<Void> response = userService.changeUserPassword("otherUser", newPassword);
 
         // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         verify(userRepository, never()).save(any(User.class));
     }
-
-
 }

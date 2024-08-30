@@ -60,7 +60,9 @@ public class UserController {
     public ResponseEntity<UserDto> getUser(@PathVariable String type, @PathVariable String identifier) {
 
         try {
-            User user = userService.getUserByIdentifier(identifier, type);
+
+            Optional<User> userOpt = userService.getUserByIdentifier(identifier, type);
+            User user = userOpt.get();
             UserDto userDto = new UserDto(user);
             return ResponseEntity.ok(userDto);
         } catch (UserNotFoundException | IllegalArgumentException e) {

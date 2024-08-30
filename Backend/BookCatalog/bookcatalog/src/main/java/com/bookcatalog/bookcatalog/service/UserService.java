@@ -5,6 +5,7 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.*;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
+import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
@@ -29,20 +30,15 @@ public class UserService {
 
     @Autowired
     private final UserRepository userRepository;
-
     private final PasswordEncoder passwordEncoder;
-
-    private final Map<String, UpdateStrategy<User>> updateStrategiesMap;
-    private final Map<String, DeleteStrategy<User>> deleteStrategiesMap;
+    private final StrategyFactory<User> strategyFactory;
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       Map<String, UpdateStrategy<User>> updateStrategiesMap, Map<String, DeleteStrategy<User>> deleteStrategiesMap) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, StrategyFactory<User> strategyFactory) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.updateStrategiesMap = updateStrategiesMap;
-        this.deleteStrategiesMap = deleteStrategiesMap;
+        this.strategyFactory = strategyFactory;
     }
 
     public ResponseEntity<Page<UserDto>> getAllUsers(int page, int size) {
@@ -68,11 +64,21 @@ Avoiding Unnecessary Complexity: Mapping directly from RegisterUserDto to User k
 Performance: Directly converting RegisterUserDto to User avoids an extra transformation step, which might be negligible in terms of performance but still contributes to overall efficiency.
      */
 
-    public ResponseEntity<UserDto> createUserNonAdmin(RegisterUserDto input) {
+    //-------------
 
-        if (input.getRole() != Role.READER && input.getRole() != Role.GUEST) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(null);
+    public ResponseEntity<UserDto> createUser(RegisterUserDto input) {
+
+        Optional<User> currentUserOpt = getCurrentUser();
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null); // No current user found
+        }
+        User currentUser = currentUserOpt.get();
+
+        if (currentUser.getRole() == Role.ADMIN && input.getRole() != Role.READER) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+        if (currentUser.getRole() == Role.SUPER && (input.getRole() != Role.ADMIN && input.getRole() != Role.READER)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null); // Super can't create roles other than Admin or Reader
         }
 
         boolean userExists = userRepository.findByEmail(input.getEmail()).isPresent() ||
@@ -85,93 +91,49 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         }
 
         User user = new User(input.getUsername(), input.getEmail(),
-                passwordEncoder.encode(input.getPassword()),
-                input.getRole());
-
+                passwordEncoder.encode(input.getPassword()), input.getRole());
         User savedUser = userRepository.save(user);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new UserDto(savedUser));
-    }
-
-    public ResponseEntity<UserDto> createAdministrator(RegisterUserDto input) {
-
-        if (input.getRole() != Role.ADMIN ) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(null);
-        }
-
-        boolean userExists = userRepository.findByEmail(input.getEmail()).isPresent() ||
-                userRepository.findByUsername(input.getUsername()).isPresent();
-
-        if (userExists) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .header("Error-Message", "User already in the database")
-                    .body(null);
-        }
-
-        User user = new User(input.getUsername(), input.getEmail(),
-                passwordEncoder.encode(input.getPassword()),
-                input.getRole());
-
-        User savedUser = userRepository.save(user);
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new UserDto(savedUser));
+        return ResponseEntity.status(HttpStatus.CREATED).body(new UserDto(savedUser));
     }
 
     public ResponseEntity<Void> deleteUser(String identifier, String type) throws IOException {
 
         try {
-            DeleteStrategy<User> strategy = deleteStrategiesMap.get(type);
 
+            DeleteStrategy<User> strategy = strategyFactory.getDeleteStrategy(type);
             if (strategy == null) {
                 return ResponseEntity.badRequest().build();
             }
 
-            User currentUser = getCurrentUser();
-            User userToDelete = getUserByIdentifier(identifier, type);
-
-            if (hasPermissionToDelete(currentUser, userToDelete)) {
-                strategy.delete(userToDelete);
-                return ResponseEntity.ok().build();
-            } else {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            Optional<User> currentUserOpt = getCurrentUser();
+            if (currentUserOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
             }
-        } catch (UserNotFoundException e) {
-            return ResponseEntity.notFound().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
+            User currentUser = currentUserOpt.get();
 
-    public ResponseEntity<Void> deleteAdministrator(String identifier, String type) throws IOException {
+            Optional<User> userToDeleteOpt = getUserByIdentifier(identifier, type);
+            if (userToDeleteOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            User userToDelete = userToDeleteOpt.get();
 
-        try {
+            if (userToDelete.getRole() == Role.ADMIN) {
 
-            DeleteStrategy<User> strategy = deleteStrategiesMap.get(type);
-
-            if (strategy == null) {
-                return ResponseEntity.badRequest().build();
+                boolean canDeleteAdmin = currentUser.getRole() == Role.SUPER ||
+                        (currentUser.getRole() == Role.ADMIN && currentUser.getUsername().equals(userToDelete.getUsername()));
+                if (!canDeleteAdmin) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
             }
 
-            User currentUser = getCurrentUser();
-            User adminToDelete = getUserByIdentifier(identifier, type);
-
-            if (adminToDelete.getRole() != Role.ADMIN) {
+            if (!hasPermissionToDelete(currentUser, userToDelete)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
-            if (hasPermissionToDelete(currentUser, adminToDelete)) {
+            strategy.delete(userToDelete);
+            return ResponseEntity.ok().build();
 
-                strategy.delete(adminToDelete);
-                return ResponseEntity.ok().build();
-            } else {
-
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         } catch (IOException e) {
@@ -180,79 +142,60 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
     }
 
     public ResponseEntity<Void> updateUser(String identifier, String type, UserDto input) throws IOException {
-
         try {
-            UpdateStrategy<User> strategy = updateStrategiesMap.get(type);
 
+            UpdateStrategy<User> strategy = strategyFactory.getUpdateStrategy(type);
             if (strategy == null) {
                 return ResponseEntity.badRequest().build();
             }
 
-            User currentUser = getCurrentUser();
-            User userToUpdate = getUserByIdentifier(identifier, type);
+            Optional<User> currentUserOpt = getCurrentUser();
+            if (currentUserOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            User currentUser = currentUserOpt.get();
 
-            if (hasPermissionToUpdate(currentUser, userToUpdate)) {
+            Optional<User> userToUpdateOpt = getUserByIdentifier(identifier, type);
+            if (userToUpdateOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            User userToUpdate = userToUpdateOpt.get();
 
-                User newDetails = new User(input);
-                strategy.update(userToUpdate, newDetails, null);
-                return ResponseEntity.ok().build();
-            } else {
+            if (userToUpdate.getRole() == Role.ADMIN) {
+
+                boolean canUpdateAdmin = currentUser.getRole() == Role.SUPER ||
+                        (currentUser.getRole() == Role.ADMIN && currentUser.getUsername().equals(userToUpdate.getUsername()));
+                if (!canUpdateAdmin) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
+            }
+
+            if (!hasPermissionToUpdate(currentUser, userToUpdate)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
+
+            User newDetails = new User(input);
+            strategy.update(userToUpdate, newDetails, null);
+            return ResponseEntity.ok().build();
+
         } catch (UserNotFoundException e) {
             return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    public ResponseEntity<Void> updateAdministrator(String identifier, String type, UserDto input) throws IOException {
-
-        try {
-
-            UpdateStrategy<User> strategy = updateStrategiesMap.get(type);
-
-            if (strategy == null) {
-                return ResponseEntity.badRequest().build();
-            }
-
-            User currentUser = getCurrentUser();
-            User adminToUpdate = getUserByIdentifier(identifier, type);
-
-            if (adminToUpdate.getRole() != Role.ADMIN) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-
-            if (hasPermissionToUpdate(currentUser, adminToUpdate)) {
-
-                User newDetails = new User(input);
-                strategy.update(adminToUpdate, newDetails, null);
-                return ResponseEntity.ok().build();
-            } else {
-
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-        } catch (UserNotFoundException e) {
-
-            return ResponseEntity.notFound().build();
-        } catch (IllegalArgumentException e) {
-
-            return ResponseEntity.badRequest().build();
-        } catch (IOException e) {
-
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     public ResponseEntity<Void> changeUserPassword(String username, String newPassword) {
 
-        User currentUser = getCurrentUser();
+        Optional<User> currentUserOpt = getCurrentUser();
 
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
         }
+
+        User currentUser = currentUserOpt.get();
 
         if (!currentUser.getUsername().equals(username)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -271,41 +214,40 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         return ResponseEntity.ok().build();
     }
 
-    public User getUserByIdentifier(String identifier, String type) {
+    public Optional<User> getUserByIdentifier(String identifier, String type) {
 
         switch (type) {
 
             case "id":
                 try {
-                    return userRepository.getReferenceById(Integer.parseInt(identifier));
+
+                    return Optional.of(userRepository.getReferenceById(Integer.parseInt(identifier)));
                 } catch (EntityNotFoundException | NumberFormatException e) {
-                    throw new UserNotFoundException("User not found with id: " + identifier, e);
+
+                    return Optional.empty();
                 }
-
             case "username":
-                return userRepository.findByUsername(identifier)
-                        .orElseThrow(() -> new UserNotFoundException("User with username " + identifier + " not found", null));
 
+                return userRepository.findByUsername(identifier);
             case "email":
-                return userRepository.findByEmail(identifier)
-                        .orElseThrow(() -> new UserNotFoundException("User with email " + identifier + " not found", null));
 
+                return userRepository.findByEmail(identifier);
             default:
                 throw new IllegalArgumentException("Invalid identifier type: " + type);
         }
     }
 
-    public User getCurrentUser() {
+    public Optional<User> getCurrentUser() {
 
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         if (principal instanceof UserDetails) {
 
             String username = ((UserDetails) principal).getUsername();
-            return userRepository.findByUsername(username).orElse(null);
+            return userRepository.findByUsername(username);
         }
 
-        return null;
+        return Optional.empty();
     }
 
     private boolean hasPermissionToDelete(User currentUser, User targetUser) {
@@ -317,7 +259,7 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
 
         if (isSuperUser) {
-            return !isSameUser; // SUPER cannot delete itself
+            return !isSameUser;
         }
 
         if (isAdminUser) {
@@ -328,7 +270,7 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
             return isSameUser;
         }
 
-        return false; // GUEST cannot be deleted by anyone
+        return false;
     }
 
     private boolean hasPermissionToUpdate(User currentUser, User targetUser) {
@@ -340,7 +282,7 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
 
         if (isSuperUser) {
-            return !isSameUser; // SUPER cannot update itself
+            return !isSameUser;
         }
 
         if (isAdminUser) {
@@ -351,7 +293,6 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
             return isSameUser;
         }
 
-        return false; // GUEST cannot be updated by anyone
-
+        return false;
     }
 }

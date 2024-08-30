@@ -110,7 +110,7 @@ class UserControllerTest {
 
         User user = new User();
         user.setUsername("testusername");
-        when(userService.getUserByIdentifier(anyString(), anyString())).thenReturn(user);
+        when(userService.getUserByIdentifier(anyString(), anyString())).thenReturn(Optional.of(user));
 
         ResponseEntity<UserDto> response = userController.getUser("username", "testusername");
 

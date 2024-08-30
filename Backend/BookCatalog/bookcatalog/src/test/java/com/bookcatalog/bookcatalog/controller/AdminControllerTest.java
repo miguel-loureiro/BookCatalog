@@ -101,7 +101,7 @@ class AdminControllerTest {
         registerUserDto.setRole(Role.ADMIN);
         UserDto createdAdmin = new UserDto();
 
-        when(userService.createAdministrator(any(RegisterUserDto.class))).thenReturn(ResponseEntity.status(HttpStatus.CREATED).body(createdAdmin));
+        when(userService.createUser(any(RegisterUserDto.class))).thenReturn(ResponseEntity.status(HttpStatus.CREATED).body(createdAdmin));
 
         // Act
         ResponseEntity<UserDto> response = adminController.createAdministrator(registerUserDto);
@@ -119,7 +119,7 @@ class AdminControllerTest {
         RegisterUserDto registerUserDto = new RegisterUserDto();
         registerUserDto.setRole(Role.READER); // A role that is not ADMIN
 
-        when(userService.createAdministrator(any(RegisterUserDto.class)))
+        when(userService.createUser(any(RegisterUserDto.class)))
                 .thenReturn(ResponseEntity.status(HttpStatus.FORBIDDEN).body(null));
 
         // Act
@@ -137,7 +137,7 @@ class AdminControllerTest {
         registerUserDto.setRole(Role.ADMIN);
         registerUserDto.setEmail("existing@example.com");
 
-        when(userService.createAdministrator(any(RegisterUserDto.class)))
+        when(userService.createUser(any(RegisterUserDto.class)))
                 .thenReturn(ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .header("Error-Message", "User already in the database")
                         .body(null));
@@ -156,20 +156,20 @@ class AdminControllerTest {
     void testDeleteAdministrator_Success() throws IOException {
         // Arrange
         ResponseEntity<Void> expectedResponse = ResponseEntity.ok().build();
-        when(userService.deleteAdministrator("newadmin" , "username")).thenReturn(expectedResponse);
+        when(userService.deleteUser("newadmin" , "username")).thenReturn(expectedResponse);
 
         // Act
         ResponseEntity<Void> response = adminController.deleteAdministrator("username", "newadmin");
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(userService, times(1)).deleteAdministrator("newadmin",  "username");
+        verify(userService, times(1)).deleteUser("newadmin",  "username");
     }
 
     @Test
     void deleteAdministrator_BadRequest() throws IOException {
         // Arrange
-        when(userService.deleteAdministrator("admin@example.com", "invalidType")).thenAnswer(invocation -> {
+        when(userService.deleteUser("admin@example.com", "invalidType")).thenAnswer(invocation -> {
 
             return ResponseEntity.badRequest().build();
         });
@@ -179,7 +179,7 @@ class AdminControllerTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(userService, times(1)).deleteAdministrator("admin@example.com", "invalidType");
+        verify(userService, times(1)).deleteUser("admin@example.com", "invalidType");
     }
 
     @Test
@@ -188,7 +188,7 @@ class AdminControllerTest {
         String type = "email";
         String identifier = "admin@example.com";
 
-        when(userService.deleteAdministrator(identifier, type)).thenAnswer(invocation -> {
+        when(userService.deleteUser(identifier, type)).thenAnswer(invocation -> {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         });
 
@@ -197,12 +197,12 @@ class AdminControllerTest {
 
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        verify(userService, times(1)).deleteAdministrator(identifier, type);
+        verify(userService, times(1)).deleteUser(identifier, type);
     }
 
     @Test
     void testDeleteAdministrator_InternalServerError() throws IOException {
-        when(userService.deleteAdministrator("admin@example.com", "email")).thenAnswer(invocation -> {
+        when(userService.deleteUser("admin@example.com", "email")).thenAnswer(invocation -> {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         });
 
@@ -211,7 +211,7 @@ class AdminControllerTest {
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        verify(userService, times(1)).deleteAdministrator("admin@example.com", "email");
+        verify(userService, times(1)).deleteUser("admin@example.com", "email");
     }
 
     @Test
@@ -222,7 +222,7 @@ class AdminControllerTest {
         User user = new User();
         UserDto userDto = new UserDto(user);
 
-        when(userService.getUserByIdentifier(identifier, type)).thenReturn(user);
+        when(userService.getUserByIdentifier(identifier, type)).thenReturn(Optional.of(user));
 
         // Act
         ResponseEntity<UserDto> response = adminController.getUser(type, identifier);
@@ -331,87 +331,87 @@ class AdminControllerTest {
     }
 
     @Test
-    void updateAdministrator_Success() throws IOException {
+    void updateUser_Success() throws IOException {
         // Arrange
         String type = "email";
         String identifier = "admin@example.com";
         UserDto userDto = new UserDto("admin", "admin@example.com", Role.ADMIN);
 
-        when(userService.updateAdministrator(identifier, type, userDto)).thenReturn(ResponseEntity.ok().build());
+        when(userService.updateUser(identifier, type, userDto)).thenReturn(ResponseEntity.ok().build());
 
         // Act
         ResponseEntity<Void> response = adminController.updateAdministrator(type, identifier, userDto);
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(userService, times(1)).updateAdministrator(identifier, type, userDto);
+        verify(userService, times(1)).updateUser(identifier, type, userDto);
     }
 
     @Test
-    void updateAdministrator_InvalidType() throws IOException {
+    void updateUser_InvalidType() throws IOException {
         // Arrange
         String type = "invalidType";
         String identifier = "admin@example.com";
         UserDto userDto = new UserDto("admin", "admin@example.com", Role.ADMIN);
 
-        when(userService.updateAdministrator(identifier, type, userDto)).thenReturn(ResponseEntity.badRequest().build());
+        when(userService.updateUser(identifier, type, userDto)).thenReturn(ResponseEntity.badRequest().build());
 
         // Act
         ResponseEntity<Void> response = adminController.updateAdministrator(type, identifier, userDto);
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(userService, times(1)).updateAdministrator(identifier, type, userDto);
+        verify(userService, times(1)).updateUser(identifier, type, userDto);
     }
 
     @Test
-    void updateAdministrator_UserNotAdmin() throws IOException {
+    void updateUser_UserNotAdmin() throws IOException {
         // Arrange
         String type = "email";
         String identifier = "user@example.com";
         UserDto userDto = new UserDto("user", "user@example.com", Role.READER);
 
-        when(userService.updateAdministrator(identifier, type, userDto)).thenReturn(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+        when(userService.updateUser(identifier, type, userDto)).thenReturn(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
 
         // Act
         ResponseEntity<Void> response = adminController.updateAdministrator(type, identifier, userDto);
 
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        verify(userService, times(1)).updateAdministrator(identifier, type, userDto);
+        verify(userService, times(1)).updateUser(identifier, type, userDto);
     }
 
     @Test
-    void updateAdministrator_UserNotFound() throws IOException {
+    void updateUser_UserNotFound() throws IOException {
         // Arrange
         String type = "email";
         String identifier = "nonexistent@example.com";
         UserDto userDto = new UserDto("nonexistent", "nonexistent@example.com", Role.ADMIN);
 
-        when(userService.updateAdministrator(identifier, type, userDto)).thenReturn(ResponseEntity.notFound().build());
+        when(userService.updateUser(identifier, type, userDto)).thenReturn(ResponseEntity.notFound().build());
 
         // Act
         ResponseEntity<Void> response = adminController.updateAdministrator(type, identifier, userDto);
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        verify(userService, times(1)).updateAdministrator(identifier, type, userDto);
+        verify(userService, times(1)).updateUser(identifier, type, userDto);
     }
 /*
     @Test
-    void updateAdministrator_IOException() throws IOException {
+    void updateUser_IOException() throws IOException {
         // Arrange
         String type = "email";
         String identifier = "admin@example.com";
         UserDto userDto = new UserDto("admin", "admin@example.com", Role.ADMIN);
 
-        when(userService.updateAdministrator(identifier, type, userDto)).thenThrow(new IOException("IO Error"));
+        when(userService.updateUser(identifier, type, userDto)).thenThrow(new IOException("IO Error"));
 
         // Act
-        ResponseEntity<Void> response = adminController.updateAdministrator(type, identifier, userDto);
+        ResponseEntity<Void> response = adminController.updateUser(type, identifier, userDto);
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        verify(userService, times(1)).updateAdministrator(identifier, type, userDto);
+        verify(userService, times(1)).updateUser(identifier, type, userDto);
     }*/
 }

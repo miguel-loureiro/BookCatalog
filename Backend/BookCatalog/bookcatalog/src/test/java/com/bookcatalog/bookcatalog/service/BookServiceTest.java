@@ -43,16 +43,10 @@ public class BookServiceTest {
     private BookRepository bookRepository;
 
     @Mock
-    private Book mockBook;
-
-    @Mock
     private UserRepository userRepository;
 
     @Mock
     private UserDetails userDetails;
-
-    @Mock
-    private User mockUser;
 
     @Mock
     private SecurityContext securityContext;

@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @RequestMapping("/admin")
 @RestController
@@ -28,7 +29,7 @@ public class AdminController {
     @PreAuthorize("hasRole('SUPER')")
     public ResponseEntity<UserDto> createAdministrator(@RequestBody RegisterUserDto registerUserDto) {
 
-        return userService.createAdministrator(registerUserDto);
+        return userService.createUser(registerUserDto);
     }
 
     @GetMapping("/all")
@@ -45,7 +46,8 @@ public class AdminController {
     public ResponseEntity<UserDto> getUser(@PathVariable String type, @PathVariable String identifier) {
 
         try {
-            User user = userService.getUserByIdentifier(identifier, type);
+            Optional<User> userOpt = userService.getUserByIdentifier(identifier, type);
+            User user = userOpt.get();
             UserDto userDto = new UserDto(user);
             return ResponseEntity.ok(userDto);
         } catch (UserNotFoundException e) {
@@ -59,13 +61,13 @@ public class AdminController {
     @PreAuthorize("hasRole('SUPER')")
     public ResponseEntity<Void> deleteAdministrator(@PathVariable String type, @PathVariable String identifier) throws IOException {
 
-       return userService.deleteAdministrator(identifier, type);
+       return userService.deleteUser(identifier, type);
     }
 
     @PutMapping(value = "/{id}/{identifier}" , consumes = {"multipart/form-data"})
     @PreAuthorize("hasRole('SUPER')")
     public ResponseEntity<Void> updateAdministrator(@PathVariable String type, @PathVariable String identifier, @RequestPart(name = "user") UserDto userDetails) throws IOException {
 
-        return userService.updateAdministrator(identifier, type, userDetails);
+        return userService.updateUser(identifier, type, userDetails);
     }
 }
