@@ -149,7 +149,6 @@ class UserServiceTest {
         }
     }
 
-
     @Test
     void testGetCurrentUser_userFound() {
         // Arrange

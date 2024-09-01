@@ -104,6 +104,32 @@ class JwtServiceTest {
     }
 
     @Test
+    void testGenerateToken_UserFound_ShouldGenerateToken() {
+        // Arrange
+        String username = "testUser";
+        when(userDetails.getUsername()).thenReturn(username);
+        User user = new User(username, "testUser@example.com", "encodedPassword", Role.READER);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+
+        // Act
+        String token = jwtService.generateToken(userDetails);
+
+        // Assert
+        assertNotNull(token);
+        assertFalse(token.isEmpty());
+
+        // Verify that the token contains the expected claims
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(jwtService.getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        assertEquals(username, claims.getSubject());
+    }
+
+
+    @Test
     public void testGenerateToken_UserNotFound() {
         // Arrange
         when(userRepository.findByUsername(anyString())).thenReturn(Optional.empty());

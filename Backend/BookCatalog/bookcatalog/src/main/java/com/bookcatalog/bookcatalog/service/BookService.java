@@ -30,13 +30,15 @@ public class BookService {
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
     private final StrategyFactory<Book> strategyFactory;
+    private final UserService userService;
 
     @Autowired
-    public BookService(UserRepository userRepository, BookRepository bookRepository, StrategyFactory<Book> strategyFactory) {
+    public BookService(UserRepository userRepository, BookRepository bookRepository, StrategyFactory<Book> strategyFactory, UserService userService) {
 
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;
         this.strategyFactory = strategyFactory;
+        this.userService = userService;
     }
 
     public Book createBook(Book book) {
@@ -82,7 +84,9 @@ public class BookService {
         User user ;
 
         try {
-            user = getCurrentUser();
+
+            Optional<User> currentUserOpt = userService.getCurrentUser();
+            user = currentUserOpt.get();
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -175,28 +179,34 @@ public class BookService {
         bookRepository.saveAll(books);
     }
 
-    public void addBookToCurrentUser(String identifier, String type) {
-
+    public ResponseEntity<Object> addBookToCurrentUser(String identifier, String type) {
         Book book = getBook(identifier, type);
 
-        User currentUser = getCurrentUser();
-
-        currentUser.getBooks().add(book);
-
-        userRepository.save(currentUser);
+        return userService.getCurrentUser()
+                .map(currentUser -> {
+                    currentUser.getBooks().add(book);
+                    userRepository.save(currentUser);
+                    return ResponseEntity.ok().build();
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    public void deleteBookFromCurrentUser(String identifier, String type) {
+    public ResponseEntity<Object> deleteBookFromCurrentUser(String identifier, String type) {
 
         Book book = getBook(identifier, type);
 
-        User currentUser = getCurrentUser();
+        // Retrieve the current user
+        return userService.getCurrentUser()
+                .map(currentUser -> {
 
-        if (!currentUser.getBooks().remove(book)) {
-
-            throw new EntityNotFoundException("Book not found in the user's collection");
-        }
-        userRepository.save(currentUser);
+                    if (currentUser.getBooks().remove(book)) {
+                        userRepository.save(currentUser);
+                        return ResponseEntity.noContent().build();
+                    } else {
+                        return ResponseEntity.notFound().build();
+                    }
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     private Page<Book> paginateBooks(List<Book> books, int page, int size) {
@@ -218,28 +228,5 @@ public class BookService {
 
         List<Book> subList = books.subList(start, end);
         return new PageImpl<>(subList, paging, books.size());
-    }
-
-    private User getCurrentUser() {
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null) {
-            throw new IllegalStateException("Authentication is not set in SecurityContext");
-        }
-
-        Object principal = authentication.getPrincipal();
-
-        if (principal == null) {
-            throw new IllegalStateException("Principal is null");
-        }
-
-        if (principal instanceof UserDetails) {
-            String username = ((UserDetails) principal).getUsername();
-            return userRepository.findByUsername(username)
-                    .orElseThrow(() -> new IllegalStateException("User not found with username " + username));
-        }
-
-        throw new IllegalStateException("Principal is not an instance of UserDetails");
     }
 }

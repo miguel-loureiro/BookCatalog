@@ -66,21 +66,31 @@ public class BookServiceTest {
     @InjectMocks
     private BookService bookService;
 
+    @InjectMocks
+    private UserService userService;
+
+    private User currentUser;
     private Book book;
     private Book newDetails;
+
 
     @BeforeEach
     public void setUp() {
 
         MockitoAnnotations.openMocks(this);
 
-        bookService = new BookService(userRepository, bookRepository, strategyFactory);
+        bookService = new BookService(userRepository, bookRepository, strategyFactory, userService);
 
         SecurityContext securityContext = mock(SecurityContext.class);
         SecurityContextHolder.setContext(securityContext);
 
         Authentication authentication = mock(Authentication.class);
         when(securityContext.getAuthentication()).thenReturn(authentication);
+
+        // Setup mock users
+        currentUser = new User();
+        currentUser.setUsername("currentUser");
+        currentUser.setRole(Role.ADMIN);
 
         book = new Book(1, "Title", "Author");
         newDetails = new Book(1, "New Title", "New Author");
@@ -137,7 +147,7 @@ public class BookServiceTest {
     void testCreateBookWithNullBookRepository_Failure() {
 
         // Arrange
-        bookService = new BookService(userRepository, null, strategyFactory);
+        bookService = new BookService(userRepository, null, strategyFactory, userService);
 
         // Act & Assert
         Book book = new Book();
@@ -152,8 +162,52 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBook() {
+    void testGetBookById_EntityNotFoundException_ShouldThrowBookNotFoundException() {
+        // Arrange
+        String identifier = "1";
+        String type = "id";
 
+        when(bookRepository.getReferenceById(Integer.parseInt(identifier)))
+                .thenThrow(new EntityNotFoundException("Book not found"));
+
+        // Act and Assert
+        assertThrows(BookNotFoundException.class, () -> bookService.getBook(identifier, type));
+    }
+
+    @Test
+    void testGetBookByTitle_EntityNotFoundException_ShouldThrowEntityNotFoundException() {
+        // Arrange
+        String identifier = "Non-Existent Title";
+        String type = "title";
+
+        when(bookRepository.findBookByTitle(identifier))
+                .thenReturn(Optional.empty());
+
+        // Act and Assert
+        assertThrows(EntityNotFoundException.class, () -> bookService.getBook(identifier, type));
+    }
+
+    @Test
+    void testGetBookByIsbn_EntityNotFoundException_ShouldThrowEntityNotFoundException() {
+        // Arrange
+        String identifier = "000-0-00-000000-0";
+        String type = "isbn";
+
+        when(bookRepository.findBookByIsbn(identifier))
+                .thenReturn(Optional.empty());
+
+        // Act and Assert
+        assertThrows(EntityNotFoundException.class, () -> bookService.getBook(identifier, type));
+    }
+
+    @Test
+    void testGetBook_InvalidType_ShouldThrowIllegalArgumentException() {
+        // Arrange
+        String identifier = "1";
+        String type = "invalidType";  // Invalid type
+
+        // Act and Assert
+        assertThrows(IllegalArgumentException.class, () -> bookService.getBook(identifier, type));
     }
 
     @Test
@@ -263,6 +317,7 @@ public class BookServiceTest {
         // Arrange
 
         mockCurrentUser(null);
+        when(userService.getCurrentUser()).thenReturn(Optional.empty());
         // Act
         ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
 
@@ -842,10 +897,11 @@ public class BookServiceTest {
         mockBook.setId(1);
         when(bookRepository.getReferenceById(1)).thenReturn(mockBook);
 
-        // Act and Assert
-        assertThrows(EntityNotFoundException.class, () -> {
-            bookService.deleteBookFromCurrentUser("1", "id");
-        }, "Expected EntityNotFoundException to be thrown when the book is not in the user's collection");
+        // Act
+        ResponseEntity<Void> response = bookService.deleteBook("1", "id");
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(), "Response status should be 404 Not Found");
         verify(userRepository, never()).save(any(User.class));
     }
 
