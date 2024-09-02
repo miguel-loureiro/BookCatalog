@@ -22,7 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -127,7 +126,7 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
                 }
             }
 
-            if (!hasPermissionToDelete(currentUser, userToDelete)) {
+            if (!hasPermissionToDeleteUser(currentUser, userToDelete)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
@@ -170,7 +169,7 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
                 }
             }
 
-            if (!hasPermissionToUpdate(currentUser, userToUpdate)) {
+            if (!hasPermissionToUpdateUser(currentUser, userToUpdate)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
@@ -250,49 +249,31 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         return Optional.empty();
     }
 
-    private boolean hasPermissionToDelete(User currentUser, User targetUser) {
+    private boolean hasPermissionToDeleteUser(User currentUser, User targetUser) {
 
-        boolean isSuperUser = currentUser.getRole() == Role.SUPER;
-        boolean isAdminUser = currentUser.getRole() == Role.ADMIN;
-        boolean isReaderUser = currentUser.getRole() == Role.READER;
-
+        Role currentUserRole = currentUser.getRole();
+        Role targetUserRole = targetUser.getRole();
         boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
 
-        if (isSuperUser) {
-            return !isSameUser;
-        }
-
-        if (isAdminUser) {
-            return isSameUser || targetUser.getRole() == Role.READER;
-        }
-
-        if (isReaderUser) {
-            return isSameUser;
-        }
-
-        return false;
+        return switch (currentUserRole) {
+            case SUPER -> !isSameUser;
+            case ADMIN -> isSameUser || targetUserRole == Role.READER;
+            case READER -> isSameUser;
+            default -> false;
+        };
     }
 
-    private boolean hasPermissionToUpdate(User currentUser, User targetUser) {
+    private boolean hasPermissionToUpdateUser(User currentUser, User targetUser) {
 
-        boolean isSuperUser = currentUser.getRole() == Role.SUPER;
-        boolean isAdminUser = currentUser.getRole() == Role.ADMIN;
-        boolean isReaderUser = currentUser.getRole() == Role.READER;
-
+        Role currentUserRole = currentUser.getRole();
+        Role targetUserRole = targetUser.getRole();
         boolean isSameUser = currentUser.getUsername().equals(targetUser.getUsername());
 
-        if (isSuperUser) {
-            return !isSameUser;
-        }
-
-        if (isAdminUser) {
-            return isSameUser || targetUser.getRole() == Role.READER;
-        }
-
-        if (isReaderUser) {
-            return isSameUser;
-        }
-
-        return false;
+        return switch (currentUserRole) {
+            case SUPER -> !isSameUser;
+            case ADMIN -> isSameUser || targetUserRole == Role.READER;
+            case READER -> isSameUser;
+            default -> false;
+        };
     }
 }

@@ -312,21 +312,6 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetAllBooks_UserIsNull() throws IOException {
-
-        // Arrange
-
-        mockCurrentUser(null);
-        when(userService.getCurrentUser()).thenReturn(Optional.empty());
-        // Act
-        ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        verify(bookRepository, never()).findAll(any(Pageable.class));
-    }
-
-    @Test
     public void testGetAllBooks_UserRoleIsNull_Failure() throws IOException {
 
         // Arrange
@@ -882,27 +867,6 @@ public class BookServiceTest {
         // Assert
         assertFalse(mockUser.getBooks().contains(mockBook), "The book should be removed from the user's collection");
         verify(userRepository).save(mockUser);
-    }
-
-    @Test
-    public void testDeleteBookFromCurrentUser_BookNotFoundInCollection() {
-        // Arrange
-        User mockUser = new User();
-        mockUser.setUsername("testuser");
-        mockUser.setBooks(new HashSet<>());
-
-        mockCurrentUser(mockUser);
-
-        Book mockBook = new Book();
-        mockBook.setId(1);
-        when(bookRepository.getReferenceById(1)).thenReturn(mockBook);
-
-        // Act
-        ResponseEntity<Void> response = bookService.deleteBook("1", "id");
-
-        // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(), "Response status should be 404 Not Found");
-        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test

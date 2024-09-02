@@ -33,19 +33,7 @@ public class UserController {
         this.userService = userService;
         this.authenticationService = authenticationService;
     }
-/*
-    @PostMapping("/signup")
-    public ResponseEntity<String> createUserNonAdmin(@RequestBody RegisterUserDto input)  {
 
-        if (input.getRole() != Role.READER && input.getRole() != Role.GUEST) {
-
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid role. Only READER or GUEST are allowed");
-        }
-
-        boolean userExistsInDatabase =
-        return ResponseEntity.ok(createdUser);
-    }
-*/
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Page<UserDto>> allUsers()  {
@@ -62,9 +50,16 @@ public class UserController {
         try {
 
             Optional<User> userOpt = userService.getUserByIdentifier(identifier, type);
+
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
             User user = userOpt.get();
             UserDto userDto = new UserDto(user);
+
             return ResponseEntity.ok(userDto);
+
         } catch (UserNotFoundException | IllegalArgumentException e) {
 
             return ResponseEntity.notFound().build();
@@ -75,9 +70,14 @@ public class UserController {
     }
 
     @DeleteMapping("/{type}/{identifier}")
-    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable String type, @PathVariable String identifier) throws IOException {
 
         return userService.deleteUser(identifier, type);
+    }
+
+    @PutMapping("{type}/{identifier}")
+    public ResponseEntity<Void> updateUser(@PathVariable String type, @PathVariable String identifier,@RequestBody UserDto input) throws IOException {
+
+        return userService.updateUser(identifier, type, input);
     }
 }

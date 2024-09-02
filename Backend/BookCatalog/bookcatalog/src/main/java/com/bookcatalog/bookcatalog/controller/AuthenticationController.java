@@ -36,21 +36,6 @@ public class AuthenticationController {
         return ResponseEntity.ok(registeredUser);
     }
 
-    /*
-    @PostMapping("/login/guest")
-    public ResponseEntity<String> guestLogin(@RequestBody LoginUserDto loginUserDto) {
-
-        User authenticatedUser = authenticationService.authenticateGuest(loginUserDto);
-
-        if (authenticatedUser == null || authenticatedUser.getRole() != Role.GUEST) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid GUEST credentials");
-        }
-        // No token generation, just return a success message or user details
-        return ResponseEntity.ok("The GUEST user: " + authenticatedUser.getUsername() + " is logged in !");
-    }
-
-
-     */
     @PostMapping("/login")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
     public ResponseEntity<LoginResponse> authenticate(@RequestBody LoginUserDto loginUserDto) {

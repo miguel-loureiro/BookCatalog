@@ -15,9 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.repository.BookRepository;
@@ -52,23 +50,39 @@ public class BookService {
 
     public Book getBook(String identifier, String type) {
 
-        switch (type) {
+        Optional<User> currentUserOpt = userService.getCurrentUser();
+        if (currentUserOpt.isEmpty()) {
+            throw new IllegalStateException("Current user not found");
+        }
 
+        User currentUser = currentUserOpt.get();
+        Book book;
+
+        switch (type) {
             case "id":
                 try {
-                    return bookRepository.getReferenceById(Integer.parseInt(identifier));
+                    book = bookRepository.getReferenceById(Integer.parseInt(identifier));
                 } catch (EntityNotFoundException e) {
                     throw new BookNotFoundException("Book not found with id: " + identifier, e);
                 }
+                break;
             case "title":
-                return bookRepository.findBookByTitle(identifier)
+                book = bookRepository.findBookByTitle(identifier)
                         .orElseThrow(() -> new EntityNotFoundException("Book with title " + identifier + " not found"));
+                break;
             case "isbn":
-                return bookRepository.findBookByIsbn(identifier)
+                book = bookRepository.findBookByIsbn(identifier)
                         .orElseThrow(() -> new EntityNotFoundException("Book with ISBN " + identifier + " not found"));
+                break;
             default:
                 throw new IllegalArgumentException("Invalid identifier type: " + type);
         }
+
+        if (!hasPermissionToDeleteBook(currentUser) && !hasPermissionToUpdateBook(currentUser)) {
+            throw new AccessDeniedException("You do not have permission to perform this action on the book");
+        }
+
+        return book;
     }
 
     public Page<Book> getBooksByAuthor(String author, int page, int size) {
@@ -86,13 +100,17 @@ public class BookService {
         try {
 
             Optional<User> currentUserOpt = userService.getCurrentUser();
+
+            if(currentUserOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
             user = currentUserOpt.get();
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        if (user == null || user.getRole() == null ||
-                (user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN)) {
+        if (user.getRole() == null || user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -115,7 +133,6 @@ public class BookService {
         }).orElse(Page.empty(PageRequest.of(page, size)));
     }
 
-
     public Page<Book> getBooksByUserIdentifier(String identifier, int page, int size) {
 
         Optional<User> userOptional = userRepository.findByUsername(identifier);
@@ -132,6 +149,17 @@ public class BookService {
     }
 
     public ResponseEntity<Void> updateBook(String identifier, String type, Book newBookDetails, String filename) {
+
+        Optional<User> currentUserOpt = userService.getCurrentUser();
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User currentUser = currentUserOpt.get();
+
+        if (!hasPermissionToDeleteBook(currentUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
         try {
 
@@ -154,6 +182,17 @@ public class BookService {
     }
 
     public ResponseEntity<Void> deleteBook(String identifier, String type) {
+
+        Optional<User> currentUserOpt = userService.getCurrentUser();
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User currentUser = currentUserOpt.get();
+
+        if (!hasPermissionToUpdateBook(currentUser)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
         try {
 
@@ -179,11 +218,11 @@ public class BookService {
         bookRepository.saveAll(books);
     }
 
-    public ResponseEntity<Object> addBookToCurrentUser(String identifier, String type) {
+    public void addBookToCurrentUser(String identifier, String type) {
 
         Book book = getBook(identifier, type);
 
-        return userService.getCurrentUser()
+        userService.getCurrentUser()
                 .map(currentUser -> {
                     currentUser.getBooks().add(book);
                     userRepository.save(currentUser);
@@ -192,12 +231,12 @@ public class BookService {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    public ResponseEntity<Object> deleteBookFromCurrentUser(String identifier, String type) {
+    public void deleteBookFromCurrentUser(String identifier, String type) {
 
         Book book = getBook(identifier, type);
 
         // Retrieve the current user
-        return userService.getCurrentUser()
+        userService.getCurrentUser()
                 .map(currentUser -> {
 
                     if (currentUser.getBooks().remove(book)) {
@@ -229,5 +268,15 @@ public class BookService {
 
         List<Book> subList = books.subList(start, end);
         return new PageImpl<>(subList, paging, books.size());
+    }
+
+    private boolean hasPermissionToDeleteBook(User currentUser) {
+
+        return currentUser.getRole() == Role.SUPER || currentUser.getRole() == Role.ADMIN;
+    }
+
+    private boolean hasPermissionToUpdateBook(User currentUser) {
+
+        return currentUser.getRole() == Role.SUPER || currentUser.getRole() == Role.ADMIN;
     }
 }

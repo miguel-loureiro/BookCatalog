@@ -29,14 +29,7 @@ public class BookController {
 
     @Autowired
     private BookService bookService;
-/*
-    @GetMapping("/{id}")
-    public ResponseEntity<Book> getBookById(@PathVariable Integer id) {
 
-           Book book = bookService.getBookByBookId(id);
-           return ResponseEntity.ok(book);
-    }
-*/
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Page<Book>> getAllBooks(
@@ -60,7 +53,7 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @GetMapping("/user")
+    @GetMapping("/user/{identifier}")
     public ResponseEntity<Page<Book>> getBooksByUserUsernameOrEmail(@RequestParam String identifier,
                                                                    @RequestParam(name = "page", defaultValue = "0") int page,
                                                                    @RequestParam(name = "size", defaultValue = "10") int size) {
@@ -100,13 +93,13 @@ public class BookController {
         final Book savedBook = bookService.createBook(book);
         return ResponseEntity.ok(savedBook);
     }
-/*
-    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+
+    @PutMapping(value = "/{type}/{identifier}", consumes = {"multipart/form-data"})
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<?> updateBook(@PathVariable Integer id, @RequestPart("book") Book bookDetails,
+    public ResponseEntity<?> updateBook(@RequestParam String type, @RequestParam String identifier, @RequestPart("book") Book bookDetails,
             @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
-        Book existingBook = bookService.getBookByBookId(id);
+        Book existingBook = bookService.getBook(identifier, type);
 
         if (existingBook == null) {
 
@@ -135,16 +128,15 @@ public class BookController {
 
         }
 
-        bookDetails.setId(existingBook.getId());  // Ensure that the Id of the book remains the same
+        bookDetails.setId(existingBook.getId());
 
-        final Book updatedBook = bookService.updateBookByBookId(id, bookDetails, file != null ? bookDetails.getCoverImage() : null);
+        final ResponseEntity<Void> updatedBook = bookService.updateBook(identifier, type, bookDetails, file != null ? bookDetails.getCoverImage() : null);
         return ResponseEntity.ok(updatedBook);
         }
-*/
-    /*
-    @DeleteMapping("/{id}")
+
+    @DeleteMapping("/{type}/{identifier}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<?> deleteBook(@PathVariable Integer id) {
+    public ResponseEntity<?> deleteBook(@RequestParam String type, @RequestParam String identifier) {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
@@ -153,13 +145,12 @@ public class BookController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to update this book. Only SUPER or ADMIN is allowed.");
         }
 
-        Book book = bookService.getBookByBookId(id);
+        Book book = bookService.getBook(identifier, type);
         if (book == null) {
             return ResponseEntity.notFound().build();
         }
 
-        bookService.deleteBookByBookId(id);
+        bookService.deleteBook(identifier, type);
         return ResponseEntity.noContent().build();
     }
-     */
 }

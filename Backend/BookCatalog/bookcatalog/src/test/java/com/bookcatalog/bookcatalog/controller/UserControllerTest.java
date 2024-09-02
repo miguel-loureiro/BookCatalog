@@ -9,20 +9,24 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class UserControllerTest {
 
@@ -50,158 +54,157 @@ class UserControllerTest {
         currentUser = new User();
         when(authentication.getPrincipal()).thenReturn(currentUser);
     }
-/*
+
     @Test
-    public void testAllUsers_WithSuperRole_ReturnsUserList() {
+    void testAllUsers_Success() {
+        // Arrange
+        UserDto user1 = new UserDto("user1", "user1@example.com", Role.READER);
+        UserDto user2 = new UserDto("user2", "user2@example.com", Role.ADMIN);
+        List<UserDto> userList = Arrays.asList(user1, user2);
+        Page<UserDto> userPage = new PageImpl<>(userList, PageRequest.of(0, 10), userList.size());
 
-        UserDto currentUser = new UserDto();
-        currentUser.setRole(Role.SUPER);
-        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(userService.getAllUsers(anyInt(), anyInt())).thenReturn(ResponseEntity.ok(userPage));
 
-        List<UserDto> users = Arrays.asList(new UserDto(), new UserDto());
-        when(userService.getUsersShortList()).thenReturn(users);
+        // Act
+        ResponseEntity<Page<UserDto>> response = userController.allUsers();
 
-        ResponseEntity<List<UserDto>> response = userController.allUsers();
-
+        // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(users, response.getBody());
+        assertEquals(userList.size(), Objects.requireNonNull(response.getBody()).getTotalElements());
+        verify(userService, times(1)).getAllUsers(0, 10);
     }
 
     @Test
-    public void testAllUsers_WithAdminRole_ReturnsUserList() {
+    void testGetUser_Success() {
+        // Arrange
+        String identifier = "user1";
+        String type = "username";
+        User user = new User("user1", "user1@example.com", "password", Role.READER);
+        UserDto userDto = new UserDto(user);
 
-        UserDto currentUser = new UserDto();
-        currentUser.setRole(Role.ADMIN);
-        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(userService.getUserByIdentifier(eq(identifier), eq(type))).thenReturn(Optional.of(user));
 
-        List<UserDto> users = Arrays.asList(new UserDto(), new UserDto());
-        when(userService.getUsersShortList()).thenReturn(users);
+        // Act
+        ResponseEntity<UserDto> response = userController.getUser(type, identifier);
 
-        ResponseEntity<List<UserDto>> response = userController.allUsers();
-
+        // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(users, response.getBody());
+        assertEquals(userDto, response.getBody());
+        verify(userService, times(1)).getUserByIdentifier(identifier, type);
     }
 
     @Test
-    public void testAllUsers_WithoutAdminRole_ReturnsForbidden() {
+    void testGetUser_NotFound() {
+        // Arrange
+        String identifier = "nonexistentUser";
+        String type = "username";
 
-        UserDto currentUser = new UserDto();
-        currentUser.setRole(Role.READER);
-        when(userService.getCurrentUser()).thenReturn(currentUser);
+        when(userService.getUserByIdentifier(eq(identifier), eq(type))).thenReturn(Optional.empty());
 
-        ResponseEntity<List<UserDto>> response = userController.allUsers();
+        // Act
+        ResponseEntity<UserDto> response = userController.getUser(type, identifier);
 
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-    }
-
-    @Test
-    public void testAllUsers_UserNull_ReturnsForbidden() {
-
-        when(userService.getCurrentUser()).thenReturn(null);
-
-        ResponseEntity<List<UserDto>> response = userController.allUsers();
-
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-    }
-*/
-    @Test
-    public void testGetUserById_UserExists_ReturnsUser() {
-
-        User user = new User();
-        user.setUsername("testusername");
-        when(userService.getUserByIdentifier(anyString(), anyString())).thenReturn(Optional.of(user));
-
-        ResponseEntity<UserDto> response = userController.getUser("username", "testusername");
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(user, response.getBody());
-    }
-/*
-    @Test
-    public void testGetUserById_UserDoesNotExist_ReturnsNotFound() {
-
-        when(userService.getUserById(anyInt())).thenReturn(Optional.empty());
-
-        ResponseEntity<UserDto> response = userController.getUserById(1);
-
+        // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        verify(userService, times(1)).getUserByIdentifier(identifier, type);
+    }
+
+
+    @Test
+    void testGetUser_IllegalArgumentException() {
+        // Arrange
+        String type = "invalidType";
+        String identifier = "user1";
+
+        when(userService.getUserByIdentifier(eq(identifier), eq(type))).thenThrow(new IllegalArgumentException("Invalid type"));
+
+        // Act
+        ResponseEntity<UserDto> response = userController.getUser(type, identifier);
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        verify(userService, times(1)).getUserByIdentifier(identifier, type);
     }
 
     @Test
-    public void testGetUserByUsernameOrEmail_IdentifierIsNull_ReturnsBadRequest() {
+    void testGetUser_GenericException() {
+        // Arrange
+        String type = "username";
+        String identifier = "user1";
 
-        ResponseEntity<UserDto> response = userController.getUserByUsernameOrEmail(null);
+        when(userService.getUserByIdentifier(eq(identifier), eq(type))).thenThrow(new RuntimeException("Unexpected error"));
+
+        // Act
+        ResponseEntity<UserDto> response = userController.getUser(type, identifier);
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        verify(userService, times(1)).getUserByIdentifier(identifier, type);
+    }
+
+    @Test
+    void testDeleteUser_Success() throws IOException {
+        // Arrange
+        String identifier = "user1";
+        String type = "username";
+
+        when(userService.deleteUser(eq(identifier), eq(type))).thenReturn(ResponseEntity.ok().build());
+
+        // Act
+        ResponseEntity<Void> response = userController.deleteUser(type, identifier);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(userService, times(1)).deleteUser(identifier, type);
+    }
+
+    @Test
+    void testDeleteUser_BadRequest() throws IOException {
+        // Arrange
+        String identifier = "user1";
+        String type = "invalidType";
+
+        when(userService.deleteUser(eq(identifier), eq(type))).thenReturn(ResponseEntity.badRequest().build());
+
+        // Act
+        ResponseEntity<Void> response = userController.deleteUser(type, identifier);
+
+        // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(userService, times(1)).deleteUser(identifier, type);
     }
 
     @Test
-    public void testGetUserByUsernameOrEmail_UserExists_ReturnsUser() {
+    void testUpdateUser_Success() throws IOException {
+        // Arrange
+        String identifier = "user1";
+        String type = "username";
+        UserDto input = new UserDto("user1", "user1@example.com", Role.READER);
 
-        UserDto user = new UserDto();
-        when(userService.getUserByUsernameOrEmail(anyString())).thenReturn(Optional.of(user));
+        when(userService.updateUser(eq(identifier), eq(type), eq(input))).thenReturn(ResponseEntity.ok().build());
 
-        ResponseEntity<UserDto> response = userController.getUserByUsernameOrEmail("identifier");
+        // Act
+        ResponseEntity<Void> response = userController.updateUser(type, identifier, input);
 
+        // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(user, response.getBody());
+        verify(userService, times(1)).updateUser(identifier, type, input);
     }
 
     @Test
-    public void testGetUserByUsernameOrEmail_UserDoesNotExist_ReturnsNotFound() {
+    void testUpdateUser_BadRequest() throws IOException {
+        // Arrange
+        String identifier = "user1";
+        String type = "invalidType";
+        UserDto input = new UserDto("user1", "user1@example.com", Role.READER);
 
-        when(userService.getUserByUsernameOrEmail(anyString())).thenReturn(Optional.empty());
+        when(userService.updateUser(eq(identifier), eq(type), eq(input))).thenReturn(ResponseEntity.badRequest().build());
 
-        ResponseEntity<UserDto> response = userController.getUserByUsernameOrEmail("identifier");
+        // Act
+        ResponseEntity<Void> response = userController.updateUser(type, identifier, input);
 
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        // Assert
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(userService, times(1)).updateUser(identifier, type, input);
     }
-
-    @Test
-    public void testDeleteUserById_Success() {
-
-        ResponseEntity<Void> expectedResponse = ResponseEntity.ok().build();
-        when(userService.deleteUserById(anyInt())).thenReturn(expectedResponse);
-
-        ResponseEntity<Void> response = userController.deleteUserById(1);
-
-        assertEquals(expectedResponse, response);
-    }
-
-    @Test
-    public void testDeleteUserByUsernameOrEmail_Success() {
-        ResponseEntity<Void> expectedResponse = ResponseEntity.ok().build();
-        when(userService.deleteUserByUsernameOrEmail(anyString())).thenReturn(expectedResponse);
-
-        ResponseEntity<Void> response = userController.deleteUserByUsernameOrEmail("identifier");
-
-        assertEquals(expectedResponse, response);
-    }
-
-    @Test
-    public void testUpdateUserById_Success() {
-
-        ResponseEntity<Object> expectedResponse = ResponseEntity.ok().build();
-        when(userService.updateUserById(anyInt(), any(UserDto.class))).thenReturn(expectedResponse);
-
-        UserDto UserDto = new UserDto();
-        ResponseEntity<Object> response = userController.updateUserById(1, UserDto);
-
-        assertEquals(expectedResponse, response);
-    }
-
-    @Test
-    public void testUpdateUserByUsernameOrEmail_Success() {
-
-        ResponseEntity<Object> expectedResponse = ResponseEntity.ok().build();
-        when(userService.updateUserByUsernameOrEmail(anyString(), any(UserDto.class))).thenReturn(expectedResponse);
-
-        UserDto UserDto = new UserDto();
-        ResponseEntity<Object> response = userController.updateUserByUsernameOrEmail("identifier", UserDto);
-
-        assertEquals(expectedResponse, response);
-    }
-
-
- */
 }
