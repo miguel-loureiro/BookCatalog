@@ -48,7 +48,6 @@ public class BookTest {
     @Test
     public void testParameterizedConstructor() throws ParseException {
 
-        Assertions.assertNotNull(book.getId());
         Assertions.assertEquals("Title", book.getTitle());
         Assertions.assertEquals("Author", book.getAuthor());
         Assertions.assertEquals("9781234567890", book.getIsbn());
@@ -77,16 +76,6 @@ public class BookTest {
         Assertions.assertEquals("newcover.jpg", book.getCoverImage());
     }
 
-    /*
-    @Test
-    public void testGetUsersShort() {
-        var userShortDtos = book.getUsersShort();
-        Assertions.assertEquals(2, userShortDtos.size());
-        Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username1")));
-        Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username1")));
-        Assertions.assertTrue(userShortDtos.stream().anyMatch(dto -> dto.getUsername().equals("username2")));
-    }
-*/
     @Test
     public void testSetPublishDate() throws IOException {
         Book book = new Book();

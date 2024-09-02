@@ -38,7 +38,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/signup/**", "/h2-console/**", "/auth/login/guest", "books/guest").permitAll()
+                .requestMatchers("/auth/login", "/auth/signup/**", "/h2-console/**", "/auth/login/guest", "/guest/books").permitAll()
                 .requestMatchers("/books").hasAnyRole("SUPER", "ADMIN")
                 .anyRequest().authenticated());
         http.sessionManagement(session -> session

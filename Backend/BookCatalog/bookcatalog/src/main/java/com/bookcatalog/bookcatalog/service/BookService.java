@@ -180,6 +180,7 @@ public class BookService {
     }
 
     public ResponseEntity<Object> addBookToCurrentUser(String identifier, String type) {
+
         Book book = getBook(identifier, type);
 
         return userService.getCurrentUser()

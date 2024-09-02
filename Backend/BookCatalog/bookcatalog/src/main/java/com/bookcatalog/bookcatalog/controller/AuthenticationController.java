@@ -36,6 +36,7 @@ public class AuthenticationController {
         return ResponseEntity.ok(registeredUser);
     }
 
+    /*
     @PostMapping("/login/guest")
     public ResponseEntity<String> guestLogin(@RequestBody LoginUserDto loginUserDto) {
 
@@ -48,6 +49,8 @@ public class AuthenticationController {
         return ResponseEntity.ok("The GUEST user: " + authenticatedUser.getUsername() + " is logged in !");
     }
 
+
+     */
     @PostMapping("/login")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
     public ResponseEntity<LoginResponse> authenticate(@RequestBody LoginUserDto loginUserDto) {

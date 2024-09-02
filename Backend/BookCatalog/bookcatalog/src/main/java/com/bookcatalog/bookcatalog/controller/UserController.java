@@ -80,7 +80,4 @@ public class UserController {
 
         return userService.deleteUser(identifier, type);
     }
-
-
-
 }

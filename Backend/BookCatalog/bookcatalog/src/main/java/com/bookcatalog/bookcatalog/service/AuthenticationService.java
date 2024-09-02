@@ -32,7 +32,7 @@ public class AuthenticationService {
 
         validateInput(input);
 
-        if (input.getRole() == Role.READER || input.getRole() == Role.GUEST) {
+        if (input.getRole() == Role.READER) {
 
             User user = new User();
             user.setUsername(input.getUsername());
@@ -44,7 +44,7 @@ public class AuthenticationService {
 
             return userRepository.save(user);
         } else {
-            throw new InvalidUserRoleException("Only READER or GUEST roles are allowed for signup.");
+            throw new InvalidUserRoleException("Only READER role are allowed for signup.");
         }
     }
 
@@ -61,20 +61,12 @@ public class AuthenticationService {
 
         User authenticatedUser = user.orElseThrow(() -> new UsernameNotFoundException("User not found with identifier: " + identifier));
 
-        if (authenticatedUser.getRole() == Role.GUEST) {
+        if(authenticatedUser.getRole() == Role.GUEST) {
 
-            throw new InvalidUserRoleException("Cannot log in with role GUEST via this endpoint");
+            return authenticatedUser;
         }
 
         return authenticatedUser;
-    }
-
-    public User authenticateGuest(LoginUserDto loginUserDto) {
-
-        Optional<User> optionalUser = userRepository.findByUsername(loginUserDto.getUsername());
-        return optionalUser.filter(user -> user.getRole() == Role.GUEST)
-                .filter(user -> passwordEncoder.matches(loginUserDto.getPassword(), user.getPassword()))
-                .orElseThrow(() -> new UsernameNotFoundException("Guest user not found or invalid credentials"));
     }
 
     private void validateInput(RegisterUserDto input) {

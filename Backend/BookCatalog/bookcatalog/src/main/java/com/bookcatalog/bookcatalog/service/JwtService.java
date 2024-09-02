@@ -1,8 +1,10 @@
 package com.bookcatalog.bookcatalog.service;
 
+import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
@@ -43,24 +45,21 @@ public class JwtService {
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
 
-        final Claims claims = extractAllClaims(token);
+        final Claims claims = extractAllClaimsAllowExpired(token);
         return claimsResolver.apply(claims);
     }
 
     public String generateToken(UserDetails userDetails) {
-
         Optional<User> userOptional = userRepository.findByUsername(userDetails.getUsername());
 
-        if (userOptional.isPresent()) {
-
+        if (userOptional.isPresent() && userOptional.get().getRole() != Role.GUEST) {
             return generateToken(new HashMap<>(), userDetails);
         } else {
-            throw new UsernameNotFoundException("User not found with username: " + userDetails.getUsername());
+            throw new UsernameNotFoundException("User not found or invalid role for token generation: " + userDetails.getUsername());
         }
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
@@ -97,14 +96,17 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    Claims extractAllClaims(String token) {
-
-        return Jwts
-                .parserBuilder()
-                .setSigningKey(getSignInKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+    Claims extractAllClaimsAllowExpired(String token) {
+        try {
+            return Jwts
+                    .parserBuilder()
+                    .setSigningKey(getSignInKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (ExpiredJwtException e) {
+            return e.getClaims();  // Return claims even if the token is expired
+        }
     }
 
     Key getSignInKey() {

@@ -128,7 +128,6 @@ class JwtServiceTest {
         assertEquals(username, claims.getSubject());
     }
 
-
     @Test
     public void testGenerateToken_UserNotFound() {
         // Arrange
@@ -139,9 +138,32 @@ class JwtServiceTest {
             jwtService.generateToken(userDetails);
         });
 
-        assertEquals("User not found with username: testuser", exception.getMessage());
+        assertEquals("User not found or invalid role for token generation: testuser", exception.getMessage());
         verify(userRepository, times(1)).findByUsername("testuser");
     }
+
+    @Test
+    public void testGenerateToken_UserIsGuest_ShouldThrowException() {
+        // Arrange
+        String username = "guestUser";
+        when(userDetails.getUsername()).thenReturn(username);
+
+        // Mock a user with GUEST role
+        User user = new User(username, "guestUser@example.com", "encodedPassword", Role.GUEST);
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+
+        // Act and Assert
+        UsernameNotFoundException exception = assertThrows(UsernameNotFoundException.class, () -> {
+            jwtService.generateToken(userDetails);
+        });
+
+        // Assert the exception message
+        assertEquals("User not found or invalid role for token generation: guestUser", exception.getMessage());
+
+        // Verify that userRepository.findByUsername was called exactly once
+        verify(userRepository, times(1)).findByUsername(username);
+    }
+
 
     @Test
     public void testGetExpirationTime() {
@@ -159,10 +181,10 @@ class JwtServiceTest {
 
         String token = jwtService.buildToken(new HashMap<>(), userDetails, pastExpiration);
 
-        // Act and Assert
-        assertThrows(ExpiredJwtException.class, () -> {
-            jwtService.isTokenExpired(token);
-        });
+        // Act
+        boolean isExpired = jwtService.isTokenExpired(token);
+        // Assert
+        assertTrue(isExpired);
     }
 
     @Test
@@ -221,9 +243,6 @@ class JwtServiceTest {
         assertTrue(isValid, "The token should be valid because it is not expired yet");
     }
 
-
-    //TODO: unit tests to fix in future iteration
-
     @Test
     void testIsTokenValid_UsernameMatchesAndTokenNotExpired() {
         // Arrange
@@ -250,4 +269,19 @@ class JwtServiceTest {
         assertFalse(isValid, "Token should not be valid when username does not match.");
     }
 
+    @Test
+    void testIsTokenValid_UsernameMatchesAndTokenExpired() {
+        // Arrange
+        String username = "testUser";
+        when(userDetails.getUsername()).thenReturn(username);
+
+        // Generate a token that is already expired (set expiration to -1 to indicate it's expired)
+        String token = generateTokenWithCustomClaims(username, -1000L); // Expired 1 second ago
+
+        // Act
+        boolean isValid = jwtService.isTokenValid(token, userDetails);
+
+        // Assert
+        assertFalse(isValid, "Token should not be valid when username matches but the token is expired.");
+    }
 }

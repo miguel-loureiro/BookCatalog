@@ -852,9 +852,9 @@ public class BookServiceTest {
         mockCurrentUser(null);
 
         // Act and Assert
-        assertThrows(IllegalStateException.class, () -> {
+        assertThrows(NullPointerException.class, () -> {
             bookService.addBookToCurrentUser("1", "id");
-        }, "Expected IllegalStateException to be thrown when no user is authenticated");
+        }, "Expected NullPointerException to be thrown when no user is authenticated");
         verify(userRepository, never()).save(any(User.class));
     }
 

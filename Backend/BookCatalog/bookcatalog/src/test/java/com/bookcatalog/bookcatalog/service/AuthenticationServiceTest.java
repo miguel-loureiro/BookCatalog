@@ -44,7 +44,7 @@ class AuthenticationServiceTest {
 
 
     @Test
-    void testSignup_Success() {
+    void testSignup_User_Reader_Success() {
         // Arrange
         registerUserDto = new RegisterUserDto("username", "email@example.com", "password", Role.READER);
         User user = new User();
@@ -245,39 +245,5 @@ class AuthenticationServiceTest {
         });
         verify(userRepository, never()).findByUsername(anyString());
         verify(userRepository, never()).findByEmail(anyString());
-    }
-
-    @Test
-    void testAuthenticateGuest_Success() {
-        // Arrange
-        LoginUserDto input = new LoginUserDto("guestUsername", "guestemail@email.com", "guestPassword");
-        User guestUser = new User();
-        guestUser.setUsername("guestUsername");
-        guestUser.setPassword("encodedGuestPassword");
-        guestUser.setRole(Role.GUEST);
-
-        when(passwordEncoder.matches("guestPassword", "encodedGuestPassword")).thenReturn(true);
-        when(userRepository.findByUsername("guestUsername")).thenReturn(Optional.of(guestUser));
-
-        // Act
-        User result = authenticationService.authenticateGuest(input);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals("guestUsername", result.getUsername());
-        verify(userRepository).findByUsername("guestUsername");
-    }
-
-    @Test
-    void testAuthenticateGuest_Failure_InvalidCredentials() {
-        // Arrange
-        LoginUserDto input = new LoginUserDto("guestUsername","guestemail@email.com",  "guestPassword");
-        when(userRepository.findByUsername("guestUsername")).thenReturn(Optional.empty());
-
-        // Act and Assert
-        UsernameNotFoundException exception = assertThrows(UsernameNotFoundException.class, () -> {
-            authenticationService.authenticateGuest(input);
-        });
-        assertEquals("Guest user not found or invalid credentials", exception.getMessage());
     }
 }

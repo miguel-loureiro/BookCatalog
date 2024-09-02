@@ -107,54 +107,6 @@ class AuthenticationControllerTest {
     }
 
     @Test
-    void testGuestLogin_Success() {
-
-        // Arrange
-        LoginUserDto loginUserDto = new LoginUserDto();
-        User guestUser = new User();
-        guestUser.setRole(Role.GUEST);
-        guestUser.setUsername("guestUser");
-        when(authenticationService.authenticateGuest(any(LoginUserDto.class))).thenReturn(guestUser);
-
-        // Act
-        ResponseEntity<String> response = authenticationController.guestLogin(loginUserDto);
-
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("The GUEST user: guestUser is logged in !", response.getBody());
-    }
-
-    @Test
-    void testGuestLogin_UserNull_Failure() {
-
-        // Arrange
-        LoginUserDto loginUserDto = new LoginUserDto();
-        User adminUser = new User();
-        adminUser.setRole(Role.ADMIN);
-        adminUser.setUsername("adminUser");
-        when(authenticationService.authenticateGuest(any(LoginUserDto.class))).thenReturn(adminUser);
-
-        // Act
-        ResponseEntity<?> response = authenticationController.guestLogin(loginUserDto);
-
-        // Assert
-        assertEquals((HttpStatus.UNAUTHORIZED), response.getStatusCode());
-    }
-
-    @Test
-    void testGuestLogin_UserNotGuest_Failure() {
-
-        // Arrange
-        when(authenticationService.authenticateGuest(any(LoginUserDto.class))).thenReturn(null);
-
-        // Act
-        ResponseEntity<?> response = authenticationController.guestLogin(null);
-
-        // Assert
-        assertEquals((HttpStatus.UNAUTHORIZED), response.getStatusCode());
-    }
-
-    @Test
     void testAuthenticate_Success() {
 
         // Arrange
