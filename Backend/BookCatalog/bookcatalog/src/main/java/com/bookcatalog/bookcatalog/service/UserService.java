@@ -55,15 +55,10 @@ public class UserService {
     Reasons for Direct Mapping from RegisterUserDto to User:
 
 Security Concerns: Since passwords are sensitive data, handling them as little as possible is a good practice. By directly mapping from RegisterUserDto to User, you ensure that the password is only processed when necessary—during the creation of the User entity—and then immediately encoded. Introducing a UserDto in between could increase the risk of mishandling or inadvertently exposing the password.
-
 Single Responsibility: The RegisterUserDto is specifically designed to capture the input needed for user registration, including the password. This aligns well with creating a User entity, which requires the password. The UserDto, on the other hand, is meant to encapsulate user data without sensitive information like the password. Thus, involving UserDto in the registration process could violate the single responsibility principle by forcing it to handle data it’s not designed for.
-
 Avoiding Unnecessary Complexity: Mapping directly from RegisterUserDto to User keeps the code simple and clear. Introducing an extra step where RegisterUserDto is first converted to UserDto and then to User would add unnecessary complexity without significant benefits. It could also lead to potential issues, such as forgetting to encode the password properly during the conversion.
-
 Performance: Directly converting RegisterUserDto to User avoids an extra transformation step, which might be negligible in terms of performance but still contributes to overall efficiency.
      */
-
-    //-------------
 
     public ResponseEntity<UserDto> createUser(RegisterUserDto input) {
 
@@ -200,15 +195,8 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Optional<User> userOptional = userRepository.findByUsername(username);
-        if (userOptional.isEmpty()) {
-
-            return ResponseEntity.notFound().build();
-        }
-
-        User user = userOptional.get();
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        currentUser.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(currentUser);
 
         return ResponseEntity.ok().build();
     }

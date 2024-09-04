@@ -6,6 +6,7 @@ import java.util.*;
 import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
+import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
@@ -15,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.repository.BookRepository;
@@ -55,10 +55,9 @@ public class BookService {
             throw new IllegalStateException("Current user not found");
         }
 
-        User currentUser = currentUserOpt.get();
         Book book;
 
-        switch (type) {
+        switch (type.toLowerCase()) {
             case "id":
                 try {
                     book = bookRepository.getReferenceById(Integer.parseInt(identifier));
@@ -68,20 +67,15 @@ public class BookService {
                 break;
             case "title":
                 book = bookRepository.findBookByTitle(identifier)
-                        .orElseThrow(() -> new EntityNotFoundException("Book with title " + identifier + " not found"));
+                        .orElseThrow(() -> new BookNotFoundException("Book not found with title: " + identifier, null));
                 break;
             case "isbn":
                 book = bookRepository.findBookByIsbn(identifier)
-                        .orElseThrow(() -> new EntityNotFoundException("Book with ISBN " + identifier + " not found"));
+                        .orElseThrow(() -> new BookNotFoundException("Book not found with ISBN: " + identifier, null));
                 break;
             default:
                 throw new IllegalArgumentException("Invalid identifier type: " + type);
         }
-
-        if (!hasPermissionToDeleteBook(currentUser) && !hasPermissionToUpdateBook(currentUser)) {
-            throw new AccessDeniedException("You do not have permission to perform this action on the book");
-        }
-
         return book;
     }
 
@@ -106,6 +100,7 @@ public class BookService {
             }
 
             user = currentUserOpt.get();
+
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -157,7 +152,7 @@ public class BookService {
 
         User currentUser = currentUserOpt.get();
 
-        if (!hasPermissionToDeleteBook(currentUser)) {
+        if (!hasPermissionToUpdateBooks(currentUser)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -170,11 +165,15 @@ public class BookService {
             }
 
             Book existingBook = getBook(identifier, type);
+
+            if(existingBook == null) {
+
+                return ResponseEntity.notFound().build();
+            }
+
             strategy.update(existingBook, newBookDetails, filename);
             return ResponseEntity.ok().build();
-        } catch (BookNotFoundException e) {
 
-            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException | IOException e) {
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -190,7 +189,7 @@ public class BookService {
 
         User currentUser = currentUserOpt.get();
 
-        if (!hasPermissionToUpdateBook(currentUser)) {
+        if (!hasPermissionToDeleteBooks(currentUser)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -218,35 +217,91 @@ public class BookService {
         bookRepository.saveAll(books);
     }
 
-    public void addBookToCurrentUser(String identifier, String type) {
+    public ResponseEntity<Object> addBookToCurrentUser(String identifier, String type) {
 
-        Book book = getBook(identifier, type);
+        try {
 
-        userService.getCurrentUser()
-                .map(currentUser -> {
-                    currentUser.getBooks().add(book);
-                    userRepository.save(currentUser);
-                    return ResponseEntity.ok().build();
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+            Optional<User> currentUserOpt = userService.getCurrentUser();
+            if (currentUserOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Current user not found");
+            }
+
+            User currentUser = currentUserOpt.get();
+
+            Book book;
+            try {
+                book = getBook(identifier, type);
+            } catch (BookNotFoundException e) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(e.getMessage());
+            }
+
+            if (currentUser.getBooks().add(book)) {
+                UserDto updatedUserDto = new UserDto(currentUser);
+
+                try {
+
+                    userService.updateUser(currentUser.getUsername(), "username", updatedUserDto);
+                } catch (IOException e) {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body("Failed to update user after adding book: " + e.getMessage());
+                }
+
+                return ResponseEntity.ok().build();
+            } else {
+
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body("Book already in user's collection");
+            }
+        } catch (Exception e) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An unexpected error occurred: " + e.getMessage());
+        }
     }
 
-    public void deleteBookFromCurrentUser(String identifier, String type) {
+    public ResponseEntity<Object> deleteBookFromCurrentUser(String identifier, String type) {
 
-        Book book = getBook(identifier, type);
+        try {
 
-        // Retrieve the current user
-        userService.getCurrentUser()
-                .map(currentUser -> {
+            Optional<User> currentUserOpt = userService.getCurrentUser();
+            if (currentUserOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Current user not found");
+            }
 
-                    if (currentUser.getBooks().remove(book)) {
-                        userRepository.save(currentUser);
-                        return ResponseEntity.noContent().build();
-                    } else {
-                        return ResponseEntity.notFound().build();
-                    }
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+            User currentUser = currentUserOpt.get();
+
+            Book book;
+            try {
+                book = getBook(identifier, type);
+            } catch (BookNotFoundException e) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+            }
+
+            if (currentUser.getBooks().remove(book)) {
+
+                UserDto updatedUserDto = new UserDto(currentUser);
+
+                try {
+
+                    userService.updateUser(currentUser.getUsername(), "username", updatedUserDto);
+                } catch (IOException e) {
+
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body("Failed to update user after removing book: " + e.getMessage());
+                }
+
+                return ResponseEntity.noContent().build();
+            } else {
+
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Book not found in user's collection");
+            }
+        } catch (Exception e) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An unexpected error occurred: " + e.getMessage());
+        }
     }
 
     private Page<Book> paginateBooks(List<Book> books, int page, int size) {
@@ -270,12 +325,12 @@ public class BookService {
         return new PageImpl<>(subList, paging, books.size());
     }
 
-    private boolean hasPermissionToDeleteBook(User currentUser) {
+    private boolean hasPermissionToDeleteBooks(User currentUser) {
 
         return currentUser.getRole() == Role.SUPER || currentUser.getRole() == Role.ADMIN;
     }
 
-    private boolean hasPermissionToUpdateBook(User currentUser) {
+    private boolean hasPermissionToUpdateBooks(User currentUser) {
 
         return currentUser.getRole() == Role.SUPER || currentUser.getRole() == Role.ADMIN;
     }

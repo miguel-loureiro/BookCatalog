@@ -396,6 +396,22 @@ class UserServiceTest {
     }
 
     @Test
+    public void testCreateUser_SuperCreatingSuper_ShouldReturnForbidden() {
+        // Arrange
+        currentUser = new User();
+        currentUser.setRole(Role.SUPER);
+        RegisterUserDto input = new RegisterUserDto("newSuper", "super@example.com", "password123", Role.SUPER);
+
+        mockCurrentUser(currentUser);
+
+        // Act
+        ResponseEntity<UserDto> response = userService.createUser(input);
+
+        // Assert
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    @Test
     void testCreateUser_UserAlreadyExists() {
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUserSuper));
         when(userRepository.findByEmail(registerUserDtoReader.getEmail())).thenReturn(Optional.of(new User()));
@@ -666,23 +682,6 @@ class UserServiceTest {
     }
 
     @Test
-    public void testUpdateUser_UserNotFound() throws IOException {
-        // Arrange
-        currentUser = new User();
-        currentUser.setUsername("user1");
-        currentUser.setRole(Role.READER);
-
-        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
-        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
-        when(userRepository.findByUsername("user1")).thenReturn(Optional.empty());
-        // Act
-        ResponseEntity<Void> response = userService.updateUser("user1", "username", inputDto);
-
-        // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    }
-
-    @Test
     void testUpdateUser_NoPermission() throws IOException {
         // Arrange
         currentUser.setUsername("user1");
@@ -818,6 +817,27 @@ class UserServiceTest {
     }
 
     @Test
+    void testUpdateUser_UserToUpdateNotFound_ShouldReturnNotFound() throws IOException {
+        // Arrange
+        String identifier = "userToUpdate";
+        String type = "username";
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+
+        User currentUser = new User("currentUsername", "current@example.com", "encodedPassword", Role.ADMIN);
+        mockCurrentUser(currentUser);
+
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(userService.getUserByIdentifier(identifier, type)).thenReturn(Optional.empty());
+        when(strategyFactory.getUpdateStrategy(type)).thenReturn(updateStrategy);
+
+        // Act
+        ResponseEntity<Void> response = userService.updateUser(identifier, type, newDetails);
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
     void testUpdateUser_UserNotFoundException_ShouldReturnNotFound() throws IOException {
         // Arrange
         UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
@@ -828,6 +848,24 @@ class UserServiceTest {
         when(userService.getUserByIdentifier("userToUpdate", "username")).thenReturn(Optional.of(userToUpdate));
         when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
         doThrow(new UserNotFoundException("User not found", null)).when(updateStrategy).update(eq(userToUpdate), any(User.class), isNull());
+
+        // Act
+        ResponseEntity<Void> response = userService.updateUser("userToUpdate", "username", newDetails);
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void testUpdateUser_CurrentUserNotFoundException_ShouldReturnNotFound() throws IOException {
+        // Arrange
+        UserDto newDetails = new UserDto("newUsername", "newEmail", Role.READER);
+        User currentUser = new User("superUser", "super@example.com", "encodedPassword", Role.ADMIN);
+        mockCurrentUser(currentUser);
+        User userToUpdate = new User("userToUpdate", "update@example.com", "encodedPassword", Role.READER);
+
+        when(userService.getCurrentUser()).thenReturn(Optional.empty());
+        when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
 
         // Act
         ResponseEntity<Void> response = userService.updateUser("userToUpdate", "username", newDetails);
@@ -862,11 +900,8 @@ class UserServiceTest {
         User currentUser = new User("superUser", "super@example.com", "encodedPassword", Role.SUPER);
         User userToUpdate = new User("userToUpdate", "update@example.com", "encodedPassword", Role.READER);
 
-        // Mock current user and user to update
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
         when(userService.getUserByIdentifier("userToUpdate", "username")).thenReturn(Optional.of(userToUpdate));
-
-        // Mock update strategy and simulate IOException
         when(strategyFactory.getUpdateStrategy("username")).thenReturn(updateStrategy);
         doThrow(new IOException("I/O error occurred")).when(updateStrategy).update(eq(userToUpdate), any(User.class), isNull());
 
@@ -883,7 +918,6 @@ class UserServiceTest {
         String username = "currentUser";
         String newPassword = "newSecurePassword";
 
-        // Mock the repository to return the current user
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(currentUser));
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedPassword");
 
@@ -913,7 +947,6 @@ class UserServiceTest {
     @Test
     void testChangeUserPassword_UserNotFound() {
         // Arrange
-
         currentUser.setUsername("currentUser");
         mockCurrentUser(currentUser);
         String newPassword = "newPassword";
