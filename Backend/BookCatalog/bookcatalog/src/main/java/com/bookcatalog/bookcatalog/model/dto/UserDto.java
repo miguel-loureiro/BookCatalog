@@ -9,29 +9,20 @@ import lombok.Setter;
 import java.util.Objects;
 import java.util.Set;
 
+@Setter
+@Getter
 public class UserDto {
 
-    @Getter
-    @Setter
     private String username;
-    @Getter
-    @Setter
     private String email;
-    @Getter
-    @Setter
     private Role role;
-    @Getter
-    @Setter
     private String coverImage;
-    @Getter
-    @Setter
     private Set<Book> books;
 
-    public UserDto() {
-
-    }
+    public UserDto() {}
 
     public UserDto(User user) {
+
         this.username = user.getUsername();
         this.email = user.getEmail();
         this.role = user.getRole();
@@ -40,6 +31,7 @@ public class UserDto {
     }
 
     public UserDto(String username, String email, Role role) {
+
         this.username = username;
         this.email = email;
         this.role = role;
@@ -47,6 +39,7 @@ public class UserDto {
 
     @Override
     public boolean equals(Object o) {
+
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         UserDto userDto = (UserDto) o;
@@ -59,6 +52,7 @@ public class UserDto {
 
     @Override
     public int hashCode() {
+
         return Objects.hash(username, email, role, coverImage, books);
     }
 }
