@@ -220,7 +220,6 @@ public class BookServiceTest {
 
         // Assert
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertEquals("You do not have permission to create a book. Only SUPER or ADMIN is allowed.", response.getBody());
         verify(bookRepository, never()).save(any());
     }
 
@@ -241,7 +240,6 @@ public class BookServiceTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("File size exceeds 2MB size limit", response.getBody());
         verify(bookRepository, never()).save(any());
     }
 
@@ -855,7 +853,6 @@ public class BookServiceTest {
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("Book not found with identifier: 8 and type: id", response.getBody());
     }
 
     @Test
@@ -897,7 +894,6 @@ public class BookServiceTest {
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("An unexpected error occurred", response.getBody());
     }
 
     @Test

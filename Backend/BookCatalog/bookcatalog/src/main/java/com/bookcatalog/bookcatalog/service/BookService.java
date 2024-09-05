@@ -45,7 +45,7 @@ public class BookService {
         this.userService = userService;
     }
 
-    public ResponseEntity<?> createBook(Book book, MultipartFile file) throws IOException {
+    public ResponseEntity<Book> createBook(Book book, MultipartFile file) throws IOException {
 
         Optional<User> currentUserOpt = userService.getCurrentUser();
         if (currentUserOpt.isEmpty()) {
@@ -54,12 +54,12 @@ public class BookService {
 
         User currentUser = currentUserOpt.get();
         if (!hasPermissionToCreateOrUpdateBooks(currentUser)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to create a book. Only SUPER or ADMIN is allowed.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         if (file != null) {
             if (file.getSize() > MAX_FILE_SIZE) {
-                return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
+                return ResponseEntity.badRequest().build();
             }
 
             String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
@@ -136,10 +136,12 @@ public class BookService {
             user = currentUserOpt.get();
 
         } catch (IllegalStateException e) {
+
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         if (user.getRole() == null || user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN) {
+
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -177,22 +179,22 @@ public class BookService {
         }).orElse(Page.empty(PageRequest.of(page, size)));
     }
 
-    public ResponseEntity<?> updateBook(String identifier, String type, Book newBookDetails, String filename) {
+    public ResponseEntity<Book> updateBook(String identifier, String type, Book newBookDetails, String filename) {
 
         Optional<User> currentUserOpt = userService.getCurrentUser();
         if (currentUserOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Current user not found");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         User currentUser = currentUserOpt.get();
 
         if (!hasPermissionToCreateOrUpdateBooks(currentUser)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to update this book. Only SUPER or ADMIN is allowed.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         Book existingBook = getBook(identifier, type);
         if (existingBook == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Book not found with identifier: " + identifier + " and type: " + type);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
         newBookDetails.setId(existingBook.getId());
@@ -201,17 +203,17 @@ public class BookService {
 
             UpdateStrategy<Book> strategy = strategyFactory.getUpdateStrategy(type);
             if (strategy == null) {
-                return ResponseEntity.badRequest().body("Invalid book update strategy for type: " + type);
+                return ResponseEntity.badRequest().build();
             }
 
             strategy.update(existingBook, newBookDetails, filename);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
 
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().build();
         } catch (IOException e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
