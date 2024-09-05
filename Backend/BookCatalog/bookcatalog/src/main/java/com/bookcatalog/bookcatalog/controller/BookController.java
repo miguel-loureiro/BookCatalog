@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,13 @@ public class BookController {
 
     @Autowired
     private BookService bookService;
+
+    @GetMapping("/{type}/{identifier}")
+    public ResponseEntity<?> getBook(@PathVariable String type, @PathVariable String identifier) {
+
+        Book book = bookService.getBook(identifier, type);
+        return ResponseEntity.ok(book);
+    }
 
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
@@ -70,69 +78,32 @@ public class BookController {
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> createBook(@RequestPart("book") Book book, @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User currentUser = (User) authentication.getPrincipal();
-
-        if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to create book. Only SUPER or ADMIN is allowed.");
-        }
-
-        if(file != null) {
-            if (file.getSize() > MAX_FILE_SIZE) {
-                return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
-            }
-
-            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filepath = Paths.get(UPLOAD_DIR, filename);
-            Files.createDirectories(filepath.getParent());
-            Files.write(filepath, file.getBytes());
-
-            book.setCoverImage(filename);
-        }
-
-        final Book savedBook = bookService.createBook(book);
-        return ResponseEntity.ok(savedBook);
+        return bookService.createBook(book, file);
     }
 
     @PutMapping(value = "/{type}/{identifier}", consumes = {"multipart/form-data"})
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<?> updateBook(@RequestParam String type, @RequestParam String identifier, @RequestPart("book") Book bookDetails,
-            @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+    public ResponseEntity<?> updateBook(@RequestParam String type, @RequestParam String identifier,
+                                        @RequestPart("book") Book bookDetails,
+                                        @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
-        Book existingBook = bookService.getBook(identifier, type);
-
-        if (existingBook == null) {
-
-            return ResponseEntity.notFound().build();
-        }
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User currentUser = (User) authentication.getPrincipal();
-
-        if (currentUser.getRole() != Role.SUPER && currentUser.getRole() != Role.ADMIN) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You do not have permission to update this book. Only SUPER or ADMIN is allowed.");
-        }
+        String filename = null;
 
         if (file != null && !file.isEmpty()) {
-
             if (file.getSize() > MAX_FILE_SIZE) {
                 return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
             }
 
-            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
             Path filepath = Paths.get(UPLOAD_DIR, filename);
             Files.createDirectories(filepath.getParent());
             Files.write(filepath, file.getBytes());
 
             bookDetails.setCoverImage(filename);
-
         }
 
-        bookDetails.setId(existingBook.getId());
-
-        final ResponseEntity<Void> updatedBook = bookService.updateBook(identifier, type, bookDetails, file != null ? bookDetails.getCoverImage() : null);
-        return ResponseEntity.ok(updatedBook);
-        }
+        return bookService.updateBook(identifier, type, bookDetails, filename);
+    }
 
     @DeleteMapping("/{type}/{identifier}")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
@@ -152,5 +123,27 @@ public class BookController {
 
         bookService.deleteBook(identifier, type);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{type}/{identifier}/add-to-user")
+    public ResponseEntity<?> addBookToCurrentUser(@PathVariable String type, @PathVariable String identifier) {
+        try {
+            return bookService.addBookToCurrentUser(identifier, type);
+        } catch (BookNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{type}/{identifier}/remove-from-user")
+    public ResponseEntity<?> deleteBookFromCurrentUser(@PathVariable String type, @PathVariable String identifier) {
+        try {
+            return bookService.deleteBookFromCurrentUser(identifier, type);
+        } catch (BookNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + e.getMessage());
+        }
     }
 }
