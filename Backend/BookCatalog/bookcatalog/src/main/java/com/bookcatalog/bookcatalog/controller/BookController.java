@@ -43,6 +43,7 @@ public class BookController {
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<Page<Book>> getAllBooks(@RequestParam(name = "page", defaultValue = "0") int page,
                                                   @RequestParam(name = "size", defaultValue = "10") int size) throws IOException {
+
         return bookService.getAllBooks(page, size);
     }
 
@@ -50,6 +51,7 @@ public class BookController {
     public ResponseEntity<Page<Book>> getBooksByUserId(@PathVariable Integer userId,
                                                        @RequestParam(name = "page", defaultValue = "0") int page,
                                                        @RequestParam(name = "size", defaultValue = "10") int size) {
+
         Page<Book> books = bookService.getBooksByUserId(userId, page, size);
         return books.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(books);
     }
@@ -58,13 +60,16 @@ public class BookController {
     public ResponseEntity<Page<Book>> getBooksByUserIdentifier(@RequestParam String identifier,
                                                                @RequestParam(name = "page", defaultValue = "0") int page,
                                                                @RequestParam(name = "size", defaultValue = "10") int size) {
+
         Page<Book> books = bookService.getBooksByUserIdentifier(identifier, page, size);
         return books.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(books);
     }
 
     @PostMapping(consumes = {"multipart/form-data"})
+    @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
     public ResponseEntity<?> createBook(@RequestPart("book") Book book,
                                         @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+
         return bookService.createBook(book, file);
     }
 
@@ -95,16 +100,19 @@ public class BookController {
 
     @DeleteMapping("/{type}/{identifier}")
     public ResponseEntity<Void> deleteBook(@PathVariable String type, @PathVariable String identifier) {
+
         return bookService.deleteBook(identifier, type);
     }
 
     @PutMapping("/{type}/{identifier}/add-to-user")
     public ResponseEntity<?> addBookToCurrentUser(@PathVariable String type, @PathVariable String identifier) {
+
         return bookService.addBookToCurrentUser(identifier, type);
     }
 
     @DeleteMapping("/{type}/{identifier}/remove-from-user")
     public ResponseEntity<?> deleteBookFromCurrentUser(@PathVariable String type, @PathVariable String identifier) {
+
         return bookService.deleteBookFromCurrentUser(identifier, type);
     }
 
