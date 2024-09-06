@@ -45,9 +45,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Clear SecurityContext if there's no Authorization header or it doesn't start with Bearer
+        // Clear SecurityContext if there is no Authorization header, or it doesn't start with Bearer
         if (authHeader == null || !authHeader.startsWith("Bearer")) {
-            SecurityContextHolder.clearContext();  // Ensure no authentication is set in the security context
+            SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
             return;
         }

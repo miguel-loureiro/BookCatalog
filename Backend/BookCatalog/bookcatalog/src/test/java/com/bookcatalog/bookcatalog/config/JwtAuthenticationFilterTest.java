@@ -18,10 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.servlet.HandlerExceptionResolver;
-
 import java.io.IOException;
-import java.net.http.HttpHeaders;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -47,7 +44,6 @@ class JwtAuthenticationFilterTest {
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
-
 
     @BeforeEach
     void setUp() {
@@ -141,7 +137,6 @@ class JwtAuthenticationFilterTest {
         assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
-
     @Test
     void doFilterInternal_ValidJwt_InvalidToken() throws ServletException, IOException {
         // Arrange
@@ -195,7 +190,6 @@ class JwtAuthenticationFilterTest {
         verify(filterChain, times(1)).doFilter(request, response);
         assertEquals(existingAuth, SecurityContextHolder.getContext().getAuthentication());
     }
-
 
     @Test
     public void testDoFilterInternal_ValidAuthHeader_ValidToken_AuthenticationNull() throws ServletException, IOException {
