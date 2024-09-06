@@ -51,9 +51,6 @@ public class AuthenticationService {
     public User authenticate(LoginUserDto input) {
 
         String identifier = input.getUsername() != null && !input.getUsername().isEmpty() ? input.getUsername() : input.getEmail();
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(identifier, input.getPassword());
-
-        authenticationManager.authenticate(authenticationToken);
 
         Optional<User> user = input.getUsername() != null && !input.getUsername().isEmpty()
                 ? userRepository.findByUsername(input.getUsername())
@@ -61,26 +58,24 @@ public class AuthenticationService {
 
         User authenticatedUser = user.orElseThrow(() -> new UsernameNotFoundException("User not found with identifier: " + identifier));
 
-        if(authenticatedUser.getRole() == Role.GUEST) {
-
+        if (authenticatedUser.getRole() == Role.GUEST) {
             return authenticatedUser;
         }
+
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(identifier, input.getPassword());
+        authenticationManager.authenticate(authenticationToken);
 
         return authenticatedUser;
     }
 
     private void validateInput(RegisterUserDto input) {
-
         if (input == null || input.getUsername() == null || input.getEmail() == null || input.getPassword() == null || input.getRole() == null) {
-
             throw new IllegalArgumentException("All fields are required for registration.");
         }
     }
 
     private void validateUser(User user) {
-
         if (user == null || user.getUsername() == null || user.getEmail() == null || user.getPassword() == null || user.getRole() == null) {
-
             throw new IllegalStateException("User fields are not properly set.");
         }
     }

@@ -65,7 +65,7 @@ class UpdateBookByIdStrategyTest {
         newDetails.setAuthor("New Author");
         newDetails.setIsbn("1234567890");
         newDetails.setPrice("29.99");
-        newDetails.setPublishDate("2023-01-01");
+        newDetails.setPublishDate("01/2023");
 
         when(bookRepository.save(book)).thenReturn(book);
 
@@ -77,7 +77,7 @@ class UpdateBookByIdStrategyTest {
         assertEquals("New Author", updatedBook.getAuthor());
         assertEquals("1234567890", updatedBook.getIsbn());
         assertEquals("29.99", updatedBook.getPrice());
-        assertEquals("2023-01-01", updatedBook.getPublishDate());
+        assertEquals("01/2023", updatedBook.getPublishDate());
         verify(bookRepository, times(1)).save(book);
     }
 
@@ -93,7 +93,7 @@ class UpdateBookByIdStrategyTest {
         newDetails.setIsbn("1234567890");
         newDetails.setPrice("29.99");
         try {
-            newDetails.setPublishDate("2023-01-01");
+            newDetails.setPublishDate("01/2023");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -110,7 +110,7 @@ class UpdateBookByIdStrategyTest {
         assertEquals("New Author", updatedBook.getAuthor());
         assertEquals("1234567890", updatedBook.getIsbn());
         assertEquals("29.99", updatedBook.getPrice());
-        assertEquals("2023-01-01", updatedBook.getPublishDate());
+        assertEquals("01/2023", updatedBook.getPublishDate());
         assertEquals(filename, updatedBook.getCoverImage());
         verify(bookRepository, times(1)).save(book);
     }

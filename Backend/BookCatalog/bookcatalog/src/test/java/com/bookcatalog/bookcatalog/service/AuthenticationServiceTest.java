@@ -42,7 +42,6 @@ class AuthenticationServiceTest {
         MockitoAnnotations.openMocks(this);
     }
 
-
     @Test
     void testSignup_User_Reader_Success() {
         // Arrange
@@ -72,11 +71,11 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto("username", "email@example.com", "password", Role.ADMIN);
 
-        // Act & Assert
+        // Act and Assert
         InvalidUserRoleException exception = assertThrows(InvalidUserRoleException.class, () -> {
             authenticationService.signup(input);
         });
-        assertEquals("Only READER or GUEST roles are allowed for signup.", exception.getMessage());
+        assertEquals("Only READER role are allowed for signup.", exception.getMessage());
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -101,7 +100,7 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto(null, "testEmail@example.com", "testPassword", Role.READER);
 
-        // Act & Assert
+        // Act and Assert
         assertThrows(IllegalArgumentException.class, () -> authenticationService.signup(input));
     }
 
@@ -110,7 +109,7 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto("testUser", null, "testPassword", Role.READER);
 
-        // Act & Assert
+        // Act and Assert
         assertThrows(IllegalArgumentException.class, () -> authenticationService.signup(input));
     }
 
@@ -119,7 +118,7 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto("testUser", "testEmail@example.com", null, Role.READER);
 
-        // Act & Assert
+        // Act and Assert
         assertThrows(IllegalArgumentException.class, () -> authenticationService.signup(input));
     }
 
@@ -128,7 +127,7 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto("testUser", "testEmail@example.com", "testPassword", null);
 
-        // Act & Assert
+        // Act and Assert
         assertThrows(IllegalArgumentException.class, () -> authenticationService.signup(input));
     }
 
@@ -137,7 +136,7 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto(null, null, "testPassword", Role.READER);
 
-        // Act & Assert
+        // Act and Assert
         assertThrows(IllegalArgumentException.class, () -> authenticationService.signup(input));
     }
 
@@ -146,7 +145,7 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto(null, "testEmail@example.com", null, Role.READER);
 
-        // Act & Assert
+        // Act and Assert
         assertThrows(IllegalArgumentException.class, () -> authenticationService.signup(input));
     }
 
@@ -155,7 +154,7 @@ class AuthenticationServiceTest {
         // Arrange
         RegisterUserDto input = new RegisterUserDto(null, null, null, null);
 
-        // Act & Assert
+        // Act and Assert
         assertThrows(IllegalArgumentException.class, () -> authenticationService.signup(input));
     }
 
@@ -208,24 +207,42 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void testAuthenticate_Failure_InvalidRole() {
+    void authenticate_GuestUser_ShouldBypassAuthentication() {
         // Arrange
-        LoginUserDto input = new LoginUserDto("username", "email@email.com", "password");
-        User user = new User();
-        user.setUsername("username");
-        user.setPassword("encodedPassword");
-        user.setRole(Role.GUEST);
+        LoginUserDto loginUserDto = new LoginUserDto();
+        loginUserDto.setUsername("guestUser");
+        loginUserDto.setPassword("password");
 
-        when(passwordEncoder.matches("password", "encodedPassword")).thenReturn(true);
-        when(userRepository.findByUsername("username")).thenReturn(Optional.of(user));
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenReturn(mock(Authentication.class));
+        User guestUser = new User();
+        guestUser.setUsername("guestUser");
+        guestUser.setPassword("password");
+        guestUser.setRole(Role.GUEST);
 
-        // Act and Assert
-        InvalidUserRoleException exception = assertThrows(InvalidUserRoleException.class, () -> {
-            authenticationService.authenticate(input);
-        });
-        assertEquals("Cannot log in with role GUEST via this endpoint", exception.getMessage());
+        when(userRepository.findByUsername("guestUser")).thenReturn(Optional.of(guestUser));
+
+        // Act
+        User result = authenticationService.authenticate(loginUserDto);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(Role.GUEST, result.getRole());
+        verify(authenticationManager, never()).authenticate(any(UsernamePasswordAuthenticationToken.class));
+    }
+
+    @Test
+    void authenticate_NonExistentUser_ShouldThrowException() {
+        // Arrange
+        LoginUserDto loginUserDto = new LoginUserDto();
+        loginUserDto.setUsername("nonExistentUser");
+        loginUserDto.setPassword("password");
+
+        when(userRepository.findByUsername("nonExistentUser")).thenReturn(Optional.empty());
+
+        // Act
+        assertThrows(UsernameNotFoundException.class, () -> authenticationService.authenticate(loginUserDto));
+
+        // Assert
+        verify(authenticationManager, never()).authenticate(any(UsernamePasswordAuthenticationToken.class));
     }
 
     @Test
@@ -243,7 +260,5 @@ class AuthenticationServiceTest {
         assertThrows(UsernameNotFoundException.class, () -> {
             authenticationService.authenticate(input);
         });
-        verify(userRepository, never()).findByUsername(anyString());
-        verify(userRepository, never()).findByEmail(anyString());
     }
 }

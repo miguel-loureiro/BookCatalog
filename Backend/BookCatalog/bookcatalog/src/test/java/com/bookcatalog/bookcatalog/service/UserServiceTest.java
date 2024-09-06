@@ -918,15 +918,21 @@ class UserServiceTest {
         String username = "currentUser";
         String newPassword = "newSecurePassword";
 
+        User currentUser = new User();
+        currentUser.setUsername(username);
+        currentUser.setPassword("oldPassword");
+        mockCurrentUser(currentUser);
+
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(currentUser));
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenReturn(currentUser);
 
         // Act
         ResponseEntity<Void> response = userService.changeUserPassword(username, newPassword);
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(userRepository).save(currentUser);
+        verify(userRepository, times(1)).save(currentUser);
         assertEquals("encodedPassword", currentUser.getPassword());
     }
 
@@ -960,86 +966,4 @@ class UserServiceTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         verify(userRepository, never()).save(any(User.class));
     }
-
-/*
-    @Test
-    public void testHasPermissionToDeleteUser_SameSuperUser_ShouldReturnFalse() {
-        // Arrange
-        User currentUser = new User("superUser", "super@domain.com", "password", Role.SUPER);
-        User targetUser = new User("superUser", "super@domain.com", "password", Role.SUPER);
-
-        // Act
-        boolean result = userService.hasPermissionToDeleteUser(currentUser, targetUser);
-
-        // Assert
-        assertFalse(result, "Super user should not be able to delete themselves");
-    }
-
-    @Test
-    public void testHasPermissionToDeleteUser_AdminDeletingAnotherAdmin_ShouldReturnFalse() {
-        // Arrange
-        User currentUser = new User("adminUser1", "admin1@domain.com", "password", Role.ADMIN);
-        User targetUser = new User("adminUser2", "admin2@domain.com", "password", Role.ADMIN);
-
-        // Act
-        boolean result = userService.hasPermissionToDeleteUser(currentUser, targetUser);
-
-        // Assert
-        assertFalse(result, "Admin user should not be able to delete another admin user");
-    }
-
-    @Test
-    public void testHasPermissionToDeleteUser_ReaderDeletingAdmin_ShouldReturnFalse() {
-        // Arrange
-        User currentUser = new User("readerUser", "reader@domain.com", "password", Role.READER);
-        User targetUser = new User("adminUser", "admin@domain.com", "password", Role.ADMIN);
-
-        // Act
-        boolean result = userService.hasPermissionToDeleteUser(currentUser, targetUser);
-
-        // Assert
-        assertFalse(result, "Reader user should not be able to delete an admin user");
-    }
-
-    // Unit tests for hasPermissionToUpdateUser
-
-    @Test
-    public void testHasPermissionToUpdateUser_SameSuperUser_ShouldReturnFalse() {
-        // Arrange
-        User currentUser = new User("superUser", "super@domain.com", "password", Role.SUPER);
-        User targetUser = new User("superUser", "super@domain.com", "password", Role.SUPER);
-
-        // Act
-        boolean result = userService.hasPermissionToUpdateUser(currentUser, targetUser);
-
-        // Assert
-        assertFalse(result, "Super user should not be able to update themselves");
-    }
-
-    @Test
-    public void testHasPermissionToUpdateUser_AdminUpdatingAnotherAdmin_ShouldReturnFalse() {
-        // Arrange
-        User currentUser = new User("adminUser1", "admin1@domain.com", "password", Role.ADMIN);
-        User targetUser = new User("adminUser2", "admin2@domain.com", "password", Role.ADMIN);
-
-        // Act
-        boolean result = userService.hasPermissionToUpdateUser(currentUser, targetUser);
-
-        // Assert
-        assertFalse(result, "Admin user should not be able to update another admin user");
-    }
-
-    @Test
-    public void testHasPermissionToUpdateUser_ReaderUpdatingAdmin_ShouldReturnFalse() {
-        // Arrange
-        User currentUser = new User("readerUser", "reader@domain.com", "password", Role.READER);
-        User targetUser = new User("adminUser", "admin@domain.com", "password", Role.ADMIN);
-
-        // Act
-        boolean result = userService.hasPermissionToUpdateUser(currentUser, targetUser);
-
-        // Assert
-        assertFalse(result, "Reader user should not be able to update an admin user");
-    }
- */
 }

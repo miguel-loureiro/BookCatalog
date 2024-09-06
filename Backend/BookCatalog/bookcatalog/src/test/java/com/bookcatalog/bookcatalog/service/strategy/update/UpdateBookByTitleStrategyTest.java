@@ -84,7 +84,7 @@ public class UpdateBookByTitleStrategyTest {
         assertEquals(newBookDetails.getIsbn(), updatedBook.getIsbn());
         assertEquals(newBookDetails.getPrice(), updatedBook.getPrice());
         assertEquals(newBookDetails.getPublishDate(), updatedBook.getPublishDate());
-        assertEquals("updated_cover.jpg", updatedBook.getCoverImage());  // Cover image should be updated
+        assertEquals("updated_cover.jpg", updatedBook.getCoverImage());
         verify(bookRepository, times(1)).save(existingBook);
     }
 

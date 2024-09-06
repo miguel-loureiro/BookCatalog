@@ -17,6 +17,7 @@ public class DateHelper {
     }
 
     public static Date deserialize (String dateString) throws IOException {
+
         if (dateString == null || dateString.isEmpty()) {
             return null;
         }
