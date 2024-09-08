@@ -75,17 +75,4 @@ public class GuestControllerTest {
         assertNotNull(response.getBody());
         assertEquals(0, response.getBody().getTotalElements());
     }
-
-    @Test
-    public void testGetAvailableBooks_ThrowsRuntimeExceptionOnIOException() throws IOException {
-        // Arrange
-        when(bookService.getAllBooks(0, 10)).thenThrow(new IOException("Service failure"));
-
-        // Act and Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            guestController.getAvailableBooks(0, 10);
-        });
-
-        assertEquals("java.io.IOException: Service failure", exception.getMessage());
-    }
 }

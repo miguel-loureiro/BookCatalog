@@ -32,13 +32,12 @@ public class GuestController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size) {
 
-        ResponseEntity<Page<Book>> books = null;
         try {
 
-            books = bookService.getAllBooks(page, size);
+            return bookService.getAllBooks(page, size);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-        return ResponseEntity.ok(books.getBody());
     }
 }

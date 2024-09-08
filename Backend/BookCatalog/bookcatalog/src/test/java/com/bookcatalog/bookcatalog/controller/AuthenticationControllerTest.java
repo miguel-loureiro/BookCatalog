@@ -1,6 +1,7 @@
 package com.bookcatalog.bookcatalog.controller;
 
 import com.bookcatalog.bookcatalog.exceptions.InvalidUserRoleException;
+import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.LoginResponse;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
@@ -19,6 +20,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -127,5 +129,53 @@ class AuthenticationControllerTest {
         assertNotNull(response.getBody());
         assertEquals(jwtToken, response.getBody().getToken());
         assertEquals(expirationTime, response.getBody().getExpiresIn());
+    }
+
+    @Test
+    void authenticateGuest_WhenGuestUserExists_ShouldReturnJwtToken() {
+        // Arrange
+        User guestUser = new User();
+        guestUser.setUsername("guestuser");
+        guestUser.setRole(Role.GUEST);
+
+        when(authenticationService.getGuestUser()).thenReturn(guestUser);
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn("fake-jwt-token");
+        when(jwtService.getExpirationTime()).thenReturn(3600L);
+
+        // Act
+        ResponseEntity<LoginResponse> responseEntity = authenticationController.authenticateGuest();
+
+        // Assert
+        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(responseEntity.getBody()).isNotNull();
+        assertThat(responseEntity.getBody().getToken()).isEqualTo("fake-jwt-token");
+        assertThat(responseEntity.getBody().getExpiresIn()).isEqualTo(3600L);
+    }
+
+    @Test
+    void authenticateGuest_WhenGuestUserDoesNotExist_ShouldCreateDummyGuestUserAndReturnJwtToken() {
+        // Arrange
+        when(authenticationService.getGuestUser()).thenReturn(null); // No GUEST user in the database
+        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn("fake-jwt-token");
+        when(jwtService.getExpirationTime()).thenReturn(3600L);
+
+        // Act
+        ResponseEntity<LoginResponse> responseEntity = authenticationController.authenticateGuest();
+
+        // Assert
+        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(responseEntity.getBody()).isNotNull();
+        assertThat(responseEntity.getBody().getToken()).isEqualTo("fake-jwt-token");
+        assertThat(responseEntity.getBody().getExpiresIn()).isEqualTo(3600L);
+
+        // Verify that a "dummy" GUEST user is used
+        /*
+        verify(jwtService).generateToken(argThat(userDetails ->
+                userDetails.getUsername().equals("guestuser") && userDetails.getAuthorities().stream().anyMatch(
+                        authority -> authority.getAuthority().equals("ROLE_GUEST")
+                )
+        ));
+
+         */
     }
 }

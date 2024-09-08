@@ -456,21 +456,6 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetAllBooks_UserGuest_Failure() throws IOException {
-        // Arrange
-        User user = new User();
-        user.setUsername("user");
-        user.setRole(Role.GUEST);
-        mockCurrentUser(user);
-
-        // Act
-        ResponseEntity<Page<Book>> response = bookService.getAllBooks(0, 10);
-
-        // Assert
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-    }
-
-    @Test
     public void testGetAllBooks_UserIsNull_Failure() throws IOException {
         // Arrange
         when(userService.getCurrentUser()).thenReturn(Optional.empty());

@@ -25,6 +25,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
@@ -965,5 +966,49 @@ class UserServiceTest {
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void testHasPermissionToDeleteUser_DefaultCase() throws Exception {
+        // Arrange
+        User currentUser = new User();
+        currentUser.setUsername("currentUser");
+        currentUser.setRole(Role.READER);
+
+        User targetUser = new User();
+        targetUser.setUsername("targetUser");
+        targetUser.setRole(Role.ADMIN);
+
+        // Access the private method using reflection
+        Method method = UserService.class.getDeclaredMethod("hasPermissionToDeleteUser", User.class, User.class);
+        method.setAccessible(true);
+
+        // Act
+        boolean result = (boolean) method.invoke(userService, currentUser, targetUser);
+
+        // Assert
+        assertFalse(result, "Default case should return false");
+    }
+
+    @Test
+    void testHasPermissionToUpdateUser_DefaultCase() throws Exception {
+        // Arrange
+        User currentUser = new User();
+        currentUser.setUsername("currentUser");
+        currentUser.setRole(Role.READER);
+
+        User targetUser = new User();
+        targetUser.setUsername("targetUser");
+        targetUser.setRole(Role.ADMIN);
+
+        // Access the private method using reflection
+        Method method = UserService.class.getDeclaredMethod("hasPermissionToUpdateUser", User.class, User.class);
+        method.setAccessible(true);
+
+        // Act
+        boolean result = (boolean) method.invoke(userService, currentUser, targetUser);
+
+        // Assert
+        assertFalse(result, "Default case should return false");
     }
 }

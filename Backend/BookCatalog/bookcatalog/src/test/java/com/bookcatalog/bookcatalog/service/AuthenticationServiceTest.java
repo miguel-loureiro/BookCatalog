@@ -207,6 +207,27 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void testGetGuestUser_ShouldReturnGuestUserWithCorrectProperties() {
+        // Act
+        User guestUser = authenticationService.getGuestUser();
+
+        // Assert
+        assertNotNull(guestUser, "Guest user should not be null");
+        assertEquals("guestuser", guestUser.getUsername(), "Guest user's username should be 'guestuser'");
+        assertEquals(Role.GUEST, guestUser.getRole(), "Guest user's role should be GUEST");
+    }
+
+    @Test
+    void testGetGuestUser_ShouldNotHaveOtherPropertiesSet() {
+        // Act
+        User guestUser = authenticationService.getGuestUser();
+
+        // Assert
+        assertNull(guestUser.getEmail(), "Guest user's email should be null");
+        assertNull(guestUser.getPassword(), "Guest user's password should be null");
+    }
+
+    @Test
     void authenticate_GuestUser_ShouldBypassAuthentication() {
         // Arrange
         LoginUserDto loginUserDto = new LoginUserDto();

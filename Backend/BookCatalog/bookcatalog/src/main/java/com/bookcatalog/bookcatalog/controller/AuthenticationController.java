@@ -1,6 +1,7 @@
 package com.bookcatalog.bookcatalog.controller;
 
 import com.bookcatalog.bookcatalog.exceptions.InvalidUserRoleException;
+import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.LoginResponse;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -40,9 +42,34 @@ public class AuthenticationController {
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
     public ResponseEntity<LoginResponse> authenticate(@RequestBody LoginUserDto loginUserDto) {
 
-        User authenticatedUser = authenticationService.authenticate(loginUserDto);
+        if (loginUserDto == null) {
+            return ResponseEntity.badRequest().build();
+        }
 
+        User authenticatedUser = authenticationService.authenticate(loginUserDto);
         String jwtToken = jwtService.generateToken(authenticatedUser);
+        long expirationTime = jwtService.getExpirationTime();
+
+        LoginResponse response = new LoginResponse()
+                .setToken(jwtToken)
+                .setExpiresIn(expirationTime);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/loginguest")
+    public ResponseEntity<LoginResponse> authenticateGuest() {
+
+        User guestUser = authenticationService.getGuestUser();
+
+        if (guestUser == null) {
+
+            guestUser = new User();
+            guestUser.setUsername("guestuser");
+            guestUser.setRole(Role.GUEST);
+        }
+
+        String jwtToken = jwtService.generateToken(new CustomUserDetails(guestUser));
         long expirationTime = jwtService.getExpirationTime();
 
         LoginResponse response = new LoginResponse()

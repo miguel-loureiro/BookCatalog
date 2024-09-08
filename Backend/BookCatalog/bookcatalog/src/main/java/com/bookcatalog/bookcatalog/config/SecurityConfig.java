@@ -38,7 +38,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/signup/**", "/h2-console/**", "/auth/login/guest", "/guest/books").permitAll()
+                .requestMatchers("/auth/login", "/auth/loginguest", "/auth/signup/**", "/h2-console/**", "/auth/login/guest", "/guest/books").permitAll()
                 .requestMatchers("/books").hasAnyRole("SUPER", "ADMIN")
                 .anyRequest().authenticated());
         http.sessionManagement(session -> session
@@ -52,7 +52,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:8005", "http://localhost:9000"));
+        configuration.setAllowedOrigins(List.of("http://localhost:8005", "http://localhost:9000", "http://127.0.0.1:9000"));
         configuration.setAllowedMethods(List.of("GET", "POST"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 
@@ -62,3 +62,4 @@ public class SecurityConfig {
         return source;
     }
 }
+

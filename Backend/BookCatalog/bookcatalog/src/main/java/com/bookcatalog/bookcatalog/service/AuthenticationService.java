@@ -68,6 +68,14 @@ public class AuthenticationService {
         return authenticatedUser;
     }
 
+    public User getGuestUser() {
+        // Return a user with GUEST role
+        User guestUser = new User();
+        guestUser.setUsername("guestuser");
+        guestUser.setRole(Role.GUEST);
+        return guestUser;
+    }
+
     private void validateInput(RegisterUserDto input) {
         if (input == null || input.getUsername() == null || input.getEmail() == null || input.getPassword() == null || input.getRole() == null) {
             throw new IllegalArgumentException("All fields are required for registration.");

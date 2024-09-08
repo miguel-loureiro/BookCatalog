@@ -1,5 +1,6 @@
 package com.bookcatalog.bookcatalog.service;
 
+import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
@@ -143,27 +144,88 @@ class JwtServiceTest {
     }
 
     @Test
-    public void testGenerateToken_UserIsGuest_ShouldThrowException() {
-        // Arrange
-        String username = "guestUser";
-        when(userDetails.getUsername()).thenReturn(username);
+    void testGenerateToken_NullUserDetails_ShouldGenerateTokenForGuestUser() {
+        // Act
+        String token = jwtService.generateToken(null);  // Passing null to simulate guest user scenario
 
-        // Mock a user with GUEST role
-        User user = new User(username, "guestUser@example.com", "encodedPassword", Role.GUEST);
-        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        // Assert
+        assertNotNull(token);
+        assertFalse(token.isEmpty());
+
+        // Verify that the token contains the expected claims
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(jwtService.getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        assertEquals("guestuser", claims.getSubject());
+    }
+
+    @Test
+    void testGenerateToken_GuestUserDetails_ShouldGenerateTokenForGuestUser() {
+        // Arrange: Mock user details for a guest user
+        UserDetails guestUserDetails = new CustomUserDetails(new User("guestuser", "", "", Role.GUEST));
+
+        // Act
+        String token = jwtService.generateToken(guestUserDetails);  // Passing guestUserDetails to generate token
+
+        // Assert
+        assertNotNull(token);
+        assertFalse(token.isEmpty());
+
+        // Verify that the token contains the expected claims
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(jwtService.getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        assertEquals("guestuser", claims.getSubject());
+    }
+
+    @Test
+    void testGenerateToken_ValidUser_ShouldGenerateTokenForUser() {
+        // Arrange: Mock user details for a valid user
+        UserDetails validUserDetails = mock(UserDetails.class);
+        when(validUserDetails.getUsername()).thenReturn("testuser");
+
+        User user = new User("testuser", "testuser@example.com", "encodedPassword", Role.READER);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+
+        // Act
+        String token = jwtService.generateToken(validUserDetails);
+
+        // Assert
+        assertNotNull(token);
+        assertFalse(token.isEmpty());
+
+        // Verify that the token contains the expected claims
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(jwtService.getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        assertEquals("testuser", claims.getSubject());
+    }
+
+    @Test
+    void testGenerateToken_UserNotFound_ShouldThrowUsernameNotFoundException() {
+        // Arrange
+        UserDetails userDetails = mock(UserDetails.class);
+        when(userDetails.getUsername()).thenReturn("nonexistentuser");
+
+        when(userRepository.findByUsername("nonexistentuser")).thenReturn(Optional.empty());
 
         // Act and Assert
         UsernameNotFoundException exception = assertThrows(UsernameNotFoundException.class, () -> {
             jwtService.generateToken(userDetails);
         });
 
-        // Assert the exception message
-        assertEquals("User not found or invalid role for token generation: guestUser", exception.getMessage());
-
-        // Verify that userRepository.findByUsername was called exactly once
-        verify(userRepository, times(1)).findByUsername(username);
+        assertEquals("User not found or invalid role for token generation: nonexistentuser", exception.getMessage());
+        verify(userRepository, times(1)).findByUsername("nonexistentuser");
     }
-
 
     @Test
     public void testGetExpirationTime() {

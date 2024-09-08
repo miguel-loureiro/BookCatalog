@@ -1,5 +1,6 @@
 package com.bookcatalog.bookcatalog.service;
 
+import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
@@ -50,9 +51,16 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
-        Optional<User> userOptional = userRepository.findByUsername(userDetails.getUsername());
+        // Handle the case when no user details are provided or the user is a dummy GUEST
+        if (userDetails == null || "guestuser".equals(userDetails.getUsername())) {
+            // Create a "dummy" CustomUserDetails for the GUEST user
+            CustomUserDetails guestUserDetails = createGuestUserDetails();
+            return generateToken(new HashMap<>(), guestUserDetails);
+        }
 
-        if (userOptional.isPresent() && userOptional.get().getRole() != Role.GUEST) {
+        // Regular user token generation
+        Optional<User> userOptional = userRepository.findByUsername(userDetails.getUsername());
+        if (userOptional.isPresent()) {
             return generateToken(new HashMap<>(), userDetails);
         } else {
             throw new UsernameNotFoundException("User not found or invalid role for token generation: " + userDetails.getUsername());
@@ -68,7 +76,6 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
@@ -110,8 +117,19 @@ public class JwtService {
     }
 
     Key getSignInKey() {
-
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    // New method to create UserDetails for a GUEST user
+    private CustomUserDetails createGuestUserDetails() {
+        // Create a User object for the GUEST user
+        User guestUser = new User();
+        guestUser.setUsername("guestuser");
+        guestUser.setPassword(""); // No password required for GUEST users
+        guestUser.setRole(Role.GUEST); // Assuming there is an enum Role with GUEST role
+
+        // Return CustomUserDetails with the GUEST user
+        return new CustomUserDetails(guestUser);
     }
 }

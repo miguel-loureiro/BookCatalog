@@ -140,7 +140,7 @@ public class BookService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        if (user.getRole() == null || user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN) {
+        if  (user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN && user.getRole() != Role.GUEST) {
 
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
