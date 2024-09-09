@@ -123,35 +123,6 @@ public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEv
             allUsers.add(userRepository.save(newReaderUser));
         }
 
-        /*
-        // Define the GUEST user's details
-        String guestUsername = "guestuser";
-        String guestEmail = "guestuser@email.com";
-
-// Check if the GUEST user already exists in the repository
-        if (userRepository.findByUsername(guestUsername).isPresent()) {
-            System.out.println("Guest user " + guestUsername + " already exists");
-        } else {
-            // Create the RegisterUserDto object for the GUEST user
-            RegisterUserDto userDto = new RegisterUserDto();
-            userDto.setUsername(guestUsername);
-            userDto.setEmail(guestEmail);
-            userDto.setPassword("guestpassword");
-            userDto.setRole(Role.GUEST);
-
-            // Create a new User entity for the GUEST user
-            User newGuestUser = new User();
-            newGuestUser.setUsername(userDto.getUsername());
-            newGuestUser.setEmail(userDto.getEmail());
-            newGuestUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
-            newGuestUser.setRole(userDto.getRole());
-
-            // Save the new GUEST user to the repository
-            allUsers.add(userRepository.save(newGuestUser));
-        }
-
-         */
-
         return allUsers;
     }
 
