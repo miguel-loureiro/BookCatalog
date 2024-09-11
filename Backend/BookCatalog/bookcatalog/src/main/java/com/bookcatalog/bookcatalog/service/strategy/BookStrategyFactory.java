@@ -1,5 +1,6 @@
 package com.bookcatalog.bookcatalog.service.strategy;
 
+import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByISBNStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByIdStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteBookByTitleStrategy;
@@ -16,22 +17,22 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class StrategyFactory<T> {
+public class BookStrategyFactory {
 
-    private final Map<String, UpdateStrategy<T>> updateStrategies;
-    private final Map<String, DeleteStrategy<T>> deleteStrategies;
+    private final Map<String, UpdateStrategy<Book>> updateStrategies;
+    private final Map<String, DeleteStrategy<Book>> deleteStrategies;
 
     @Autowired
-    public StrategyFactory(List<UpdateStrategy<T>> updateStrategiesList,
-                           List<DeleteStrategy<T>> deleteStrategiesList) {
+    public BookStrategyFactory(List<UpdateStrategy<Book>> updateStrategiesList,
+                               List<DeleteStrategy<Book>> deleteStrategiesList) {
         this.updateStrategies = new HashMap<>();
         this.deleteStrategies = new HashMap<>();
         registerUpdateStrategies(updateStrategiesList);
         registerDeleteStrategies(deleteStrategiesList);
     }
 
-    private void registerUpdateStrategies(List<UpdateStrategy<T>> strategies) {
-        for (UpdateStrategy<T> strategy : strategies) {
+    private void registerUpdateStrategies(List<UpdateStrategy<Book>> strategies) {
+        for (UpdateStrategy<Book> strategy : strategies) {
             if (strategy instanceof UpdateBookByIdStrategy) {
                 updateStrategies.put("id", strategy);
             } else if (strategy instanceof UpdateBookByTitleStrategy) {
@@ -42,8 +43,8 @@ public class StrategyFactory<T> {
         }
     }
 
-    private void registerDeleteStrategies(List<DeleteStrategy<T>> strategies) {
-        for (DeleteStrategy<T> strategy : strategies) {
+    private void registerDeleteStrategies(List<DeleteStrategy<Book>> strategies) {
+        for (DeleteStrategy<Book> strategy : strategies) {
             if (strategy instanceof DeleteBookByIdStrategy) {
                 deleteStrategies.put("id", strategy);
             } else if (strategy instanceof DeleteBookByTitleStrategy) {
@@ -54,11 +55,11 @@ public class StrategyFactory<T> {
         }
     }
 
-    public UpdateStrategy<T> getUpdateStrategy(String type) {
+    public UpdateStrategy<Book> getUpdateStrategy(String type) {
         return updateStrategies.get(type);
     }
 
-    public DeleteStrategy<T> getDeleteStrategy(String type) {
+    public DeleteStrategy<Book> getDeleteStrategy(String type) {
         return deleteStrategies.get(type);
     }
 }

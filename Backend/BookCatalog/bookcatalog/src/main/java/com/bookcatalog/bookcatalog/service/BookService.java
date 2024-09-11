@@ -11,7 +11,7 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
-import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
+import com.bookcatalog.bookcatalog.service.strategy.BookStrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
@@ -31,13 +31,13 @@ public class BookService {
     @Autowired
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
-    private final StrategyFactory<Book> strategyFactory;
+    private final BookStrategyFactory strategyFactory;
     private final UserService userService;
     private static final String UPLOAD_DIR = System.getProperty("user.dir") + "/uploads";
     private static final long MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
     @Autowired
-    public BookService(UserRepository userRepository, BookRepository bookRepository, StrategyFactory<Book> strategyFactory, UserService userService) {
+    public BookService(UserRepository userRepository, BookRepository bookRepository, BookStrategyFactory strategyFactory, UserService userService) {
 
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;

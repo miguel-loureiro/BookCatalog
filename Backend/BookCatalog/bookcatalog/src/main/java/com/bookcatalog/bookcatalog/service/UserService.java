@@ -5,7 +5,7 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.*;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
-import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
+import com.bookcatalog.bookcatalog.service.strategy.UserStrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
@@ -30,10 +30,10 @@ public class UserService {
     @Autowired
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final StrategyFactory<User> strategyFactory;
+    private final UserStrategyFactory strategyFactory;
 
     @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, StrategyFactory<User> strategyFactory) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, UserStrategyFactory  strategyFactory) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;

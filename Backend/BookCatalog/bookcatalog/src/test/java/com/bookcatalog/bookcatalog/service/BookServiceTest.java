@@ -5,7 +5,7 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
-import com.bookcatalog.bookcatalog.service.strategy.StrategyFactory;
+import com.bookcatalog.bookcatalog.service.strategy.BookStrategyFactory;
 import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
 import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
@@ -70,7 +70,7 @@ public class BookServiceTest {
     private DeleteStrategy<Book> deleteStrategy;
 
     @Mock
-    private StrategyFactory<Book> strategyFactory;
+    private BookStrategyFactory strategyFactory;
 
     @Mock
     private UserService mockUserService;

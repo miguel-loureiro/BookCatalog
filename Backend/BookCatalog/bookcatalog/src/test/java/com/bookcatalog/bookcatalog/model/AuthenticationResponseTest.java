@@ -41,7 +41,7 @@ class AuthenticationResponseTest {
     public void testNullUserInConstructor() {
         AuthenticationResponse response = new AuthenticationResponse(null, "token");
         assertNotNull(response);
-        assertEquals(null, response.getUser());
+        assertNull(response.getUser());
         assertEquals("token", response.getToken());
     }
 

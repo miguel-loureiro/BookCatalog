@@ -44,10 +44,10 @@ class JwtServiceTest {
     private JwtService jwtService;
 
     @Value("${security.jwt.secret}")
-    private String secretKey = "supersecretkeyforjwtservicegeneratetokenforuser"; // Mocked value
+    private final String secretKey = "supersecretkeyforjwtservicegeneratetokenforuser"; // Mocked value
 
     @Value("${security.jwt.expiration}")
-    private long jwtExpiration = 86400000; // Mocked value (1 hour)
+    private final long jwtExpiration = 86400000 * 2; // Mocked value (2 hours)
 
     @BeforeEach
     public void setUp() {
