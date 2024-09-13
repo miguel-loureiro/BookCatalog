@@ -5,15 +5,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
+import com.bookcatalog.bookcatalog.helpers.FileUploadHelper;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
+import com.bookcatalog.bookcatalog.model.dto.BookDetailWithoutUserListDto;
+import com.bookcatalog.bookcatalog.model.dto.BookDto;
 import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
-import com.bookcatalog.bookcatalog.service.strategy.BookStrategyFactory;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -31,46 +32,68 @@ public class BookService {
     @Autowired
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
-    private final BookStrategyFactory strategyFactory;
     private final UserService userService;
     private static final String UPLOAD_DIR = System.getProperty("user.dir") + "/uploads";
     private static final long MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
     @Autowired
-    public BookService(UserRepository userRepository, BookRepository bookRepository, BookStrategyFactory strategyFactory, UserService userService) {
+    public BookService(UserRepository userRepository, BookRepository bookRepository, UserService userService) {
 
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;
-        this.strategyFactory = strategyFactory;
         this.userService = userService;
     }
 
-    public ResponseEntity<Book> createBook(Book book, MultipartFile file) throws IOException {
+    public ResponseEntity<Book> createBook(BookDetailWithoutUserListDto bookDto, MultipartFile file) throws IOException {
 
-        Optional<User> currentUserOpt = userService.getCurrentUser();
-        if (currentUserOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        User currentUser = currentUserOpt.get();
-        if (!hasPermissionToCreateOrUpdateBooks(currentUser)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        if (file != null) {
-            if (file.getSize() > MAX_FILE_SIZE) {
-                return ResponseEntity.badRequest().build();
+        try {
+            Optional<User> currentUserOpt = userService.getCurrentUser();
+            if (currentUserOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
-            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filepath = Paths.get(UPLOAD_DIR, filename);
-            Files.createDirectories(filepath.getParent());
-            Files.write(filepath, file.getBytes());
-            book.setCoverImage(filename);
-        }
+            User currentUser = currentUserOpt.get();
+            if (!hasPermissionToCreateOrUpdateBooks(currentUser)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
 
-        Book savedBook = bookRepository.save(book);
-        return ResponseEntity.ok(savedBook);
+            Book book = new Book();
+            book.setTitle(bookDto.getTitle());
+            book.setAuthor(bookDto.getAuthor());
+            book.setIsbn(bookDto.getIsbn());
+            book.setPrice(bookDto.getPrice());
+            book.setPublishDate(bookDto.getPublishDate());
+
+
+            if (file != null && !file.isEmpty()) {
+                try {
+                    String fileName = FileUploadHelper.saveFile(file);
+                    book.setCoverImage(fileName);  // Set the cover image
+                } catch (IOException e) {
+                    return ResponseEntity.badRequest().eTag("Failed to upload").build();
+                }
+            } else {
+                book.setCoverImage(null);
+            }
+
+            Book savedBook = bookRepository.save(book);
+            return ResponseEntity.ok(savedBook);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    public Book createBook(BookDetailWithoutUserListDto bookDto) throws IOException {
+
+        Book book = new Book();
+        book.setTitle(bookDto.getTitle());
+        book.setAuthor(bookDto.getAuthor());
+        book.setIsbn(bookDto.getIsbn());
+        book.setPrice(bookDto.getPrice());
+        book.setPublishDate((bookDto.getPublishDate()));
+        book.setCoverImage(bookDto.getCoverImage());
+
+        return bookRepository.save(book);
     }
 
     public Book createBook(Book book) {
@@ -82,7 +105,7 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    public Book getBook(String identifier, String type) {
+    public Book getBookByIdentifier(String identifier, String type) {
 
         Optional<User> currentUserOpt = userService.getCurrentUser();
         if (currentUserOpt.isEmpty()) {
@@ -113,58 +136,89 @@ public class BookService {
         return book;
     }
 
+    // TODO: remove this method.
     public Page<Book> getBooksByAuthor(String author, int page, int size) {
 
         Pageable pageable = PageRequest.of(page, size);
         return bookRepository.findBooksByAuthor(author, pageable);
     }
 
-    public ResponseEntity<Page<Book>> getAllBooks(
+    public ResponseEntity<Page<BookDto>> getAllBooks(
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size) throws IOException {
 
-        User user ;
+        Optional<User> currentUserOpt = userService.getCurrentUser();
 
-        try {
-
-            Optional<User> currentUserOpt = userService.getCurrentUser();
-
-            if(currentUserOpt.isEmpty()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            user = currentUserOpt.get();
-
-        } catch (IllegalStateException e) {
-
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        if  (user.getRole() != Role.SUPER && user.getRole() != Role.ADMIN && user.getRole() != Role.GUEST) {
+        User currentUser = currentUserOpt.get();
+        if (!hasPermissionToViewCompleteBooksWithUsers(currentUser)) {
 
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         Pageable paging = PageRequest.of(page, size, Sort.by("author").and(Sort.by("title")).ascending());
         Page<Book> booksPage = bookRepository.findAll(paging);
-        return ResponseEntity.ok(booksPage);
+
+        Page<BookDto> bookDtos = booksPage.map(book -> new BookDto(book));
+
+        return ResponseEntity.ok(bookDtos);
     }
 
-    public Page<Book> getBooksByUserId(Integer userId, int page, int size) {
+    public BookDto getBookWithShortUserDetails(String identifier, String type) {
+
+        Book book = getBookByIdentifier(identifier, type);
+
+
+        BookDto bookDto = new BookDto(book);
+
+
+        return bookDto;
+    }
+
+    public ResponseEntity<Set<BookDetailWithoutUserListDto>> getOnlyBooks(int page, int size) {
+
+        Optional<User> currentUserOpt = userService.getCurrentUser();
+
+        if (currentUserOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User currentUser = currentUserOpt.get();
+        if (!hasPermissionToViewBooksOnly(currentUser)) {
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        Pageable paging = PageRequest.of(page, size);
+        Page<Book> booksPage = bookRepository.findAll(paging);
+
+        Set<BookDetailWithoutUserListDto> bookOnlyDtos = booksPage.stream()
+                .map(BookDetailWithoutUserListDto::new)
+                .collect(Collectors.toSet());
+
+        return ResponseEntity.ok(bookOnlyDtos);
+    }
+
+    public Page<BookDetailWithoutUserListDto> getBooksByUserId(Integer userId, int page, int size) {
 
         Optional<User> userOptional = userRepository.findById(userId);
 
         if (userOptional.isEmpty()) {
-            userOptional = userRepository.findById(userId);
+            return Page.empty(PageRequest.of(page, size));
         }
 
-        return userOptional.map(user -> {
-            List<Book> booksList = new ArrayList<>(user.getBooks());
-            return paginateBooks(booksList, page, size);
-        }).orElse(Page.empty(PageRequest.of(page, size)));
+        User user = userOptional.get();
+        List<Book> booksList = new ArrayList<>(user.getBooks());
+
+        Page<Book> bookPage = paginateBooks(booksList, page, size);
+
+        return bookPage.map(BookDetailWithoutUserListDto::new);
     }
 
-    public Page<Book> getBooksByUserIdentifier(String identifier, int page, int size) {
+    public Page<BookDetailWithoutUserListDto> getBooksByUserIdentifier(String identifier, int page, int size) {
 
         Optional<User> userOptional = userRepository.findByUsername(identifier);
 
@@ -175,11 +229,15 @@ public class BookService {
         return userOptional.map(user -> {
 
             List<Book> booksList = new ArrayList<>(user.getBooks());
-            return paginateBooks(booksList, page, size);
+
+            Page<Book> bookPage = paginateBooks(booksList, page, size);
+
+            return bookPage.map(BookDetailWithoutUserListDto::new);
+
         }).orElse(Page.empty(PageRequest.of(page, size)));
     }
 
-    public ResponseEntity<Book> updateBook(String identifier, String type, Book newBookDetails, String filename) {
+    public ResponseEntity<Book> updateBook(String identifier, String type, Book newBookDetails, MultipartFile file) throws IOException {
 
         Optional<User> currentUserOpt = userService.getCurrentUser();
         if (currentUserOpt.isEmpty()) {
@@ -192,29 +250,29 @@ public class BookService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Book existingBook = getBook(identifier, type);
+        Book existingBook = getBookByIdentifier(identifier, type);
         if (existingBook == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
         newBookDetails.setId(existingBook.getId());
 
-        try {
+        if (file != null && !file.isEmpty()) {
 
-            UpdateStrategy<Book> strategy = strategyFactory.getUpdateStrategy(type);
-            if (strategy == null) {
+            if (file.getSize() > MAX_FILE_SIZE) {
                 return ResponseEntity.badRequest().build();
             }
 
-            strategy.update(existingBook, newBookDetails, filename);
-            return ResponseEntity.ok().build();
-        } catch (IllegalArgumentException e) {
-
-            return ResponseEntity.badRequest().build();
-        } catch (IOException e) {
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            Path filepath = Paths.get(UPLOAD_DIR, filename);
+            Files.createDirectories(filepath.getParent());
+            Files.write(filepath, file.getBytes());
+            newBookDetails.setCoverImage(filename);
         }
+
+        bookRepository.save(newBookDetails);
+
+        return ResponseEntity.ok(newBookDetails);
     }
 
     public ResponseEntity<Void> deleteBook(String identifier, String type) {
@@ -225,28 +283,17 @@ public class BookService {
         }
 
         User currentUser = currentUserOpt.get();
-
         if (!hasPermissionToDeleteBooks(currentUser)) {
+
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        try {
+        Optional<Book> bookToDeleteOpt = Optional.of(getBookByIdentifier(identifier, type));
 
-            DeleteStrategy<Book> strategy = strategyFactory.getDeleteStrategy(type);
-            if (strategy == null) {
+        Book bookToDelete = bookToDeleteOpt.get();
+        bookRepository.delete(bookToDelete);
 
-                return ResponseEntity.badRequest().build();
-            }
-            Book bookToDelete = getBook(identifier, type);
-            strategy.delete(bookToDelete);
-            return ResponseEntity.ok().build();
-        } catch (BookNotFoundException e) {
-
-            return ResponseEntity.notFound().build();
-        } catch (IllegalArgumentException | IOException e) {
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok().build();
     }
 
     public void saveAll(List<Book> books) {
@@ -268,7 +315,7 @@ public class BookService {
 
             Book book;
             try {
-                book = getBook(identifier, type);
+                book = getBookByIdentifier(identifier, type);
             } catch (BookNotFoundException e) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(e.getMessage());
@@ -311,7 +358,7 @@ public class BookService {
 
             Book book;
             try {
-                book = getBook(identifier, type);
+                book = getBookByIdentifier(identifier, type);
             } catch (BookNotFoundException e) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
             }
@@ -360,6 +407,39 @@ public class BookService {
 
         List<Book> subList = books.subList(start, end);
         return new PageImpl<>(subList, paging, books.size());
+    }
+
+    private void updateBookDetails(Book bookToUpdate, Book newBookDetails, MultipartFile file) throws IOException {
+
+        bookToUpdate.setTitle(newBookDetails.getTitle());
+        bookToUpdate.setAuthor(newBookDetails.getAuthor());
+        bookToUpdate.setPrice(newBookDetails.getPrice());
+        bookToUpdate.setIsbn(newBookDetails.getIsbn());
+        bookToUpdate.setPublishDate(newBookDetails.getPublishDate());
+
+        if (file != null && !file.isEmpty()) {
+            if (file.getSize() > MAX_FILE_SIZE) {
+                throw new IOException("File size exceeds the limit");
+            }
+
+            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            Path filepath = Paths.get(UPLOAD_DIR, filename);
+            Files.createDirectories(filepath.getParent());
+            Files.write(filepath, file.getBytes());
+            bookToUpdate.setCoverImage(filename);
+        }
+        }
+
+    private boolean hasPermissionToViewCompleteBooksWithUsers(User currentUser) {
+
+        return currentUser.getRole() == Role.SUPER ||
+                currentUser.getRole() == Role.ADMIN;
+    }
+
+    private boolean hasPermissionToViewBooksOnly(User currentUser) {
+
+        return currentUser.getRole() == Role.READER||
+                currentUser.getRole() == Role.GUEST;
     }
 
     private boolean hasPermissionToDeleteBooks(User currentUser) {

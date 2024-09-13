@@ -73,7 +73,12 @@ public class User implements UserDetails {
         this.username = userDto.getUsername();
         this.email = userDto.getEmail();
         this.role = userDto.getRole();
-        this.books = userDto.getBooks() != null ? new HashSet<>(userDto.getBooks()) : new HashSet<>();
+        this.coverImage = userDto.getCoverImage() != null ? userDto.getCoverImage() : null;
+        this.books = userDto.getBooks() != null
+                ? userDto.getBooks().stream()
+                .map(bookDto -> new Book(bookDto.getTitle(), bookDto.getAuthor()))
+                .collect(Collectors.toSet())
+                : new HashSet<>();
     }
 
     @Override

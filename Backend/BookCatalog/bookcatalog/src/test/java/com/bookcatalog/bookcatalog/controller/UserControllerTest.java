@@ -184,7 +184,7 @@ class UserControllerTest {
         when(userService.updateUser(eq(identifier), eq(type), eq(input))).thenReturn(ResponseEntity.ok().build());
 
         // Act
-        ResponseEntity<Void> response = userController.updateUser(type, identifier, input);
+        ResponseEntity<UserDto> response = userController.updateUser(type, identifier, input);
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -201,7 +201,7 @@ class UserControllerTest {
         when(userService.updateUser(eq(identifier), eq(type), eq(input))).thenReturn(ResponseEntity.badRequest().build());
 
         // Act
-        ResponseEntity<Void> response = userController.updateUser(type, identifier, input);
+        ResponseEntity<UserDto> response = userController.updateUser(type, identifier, input);
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

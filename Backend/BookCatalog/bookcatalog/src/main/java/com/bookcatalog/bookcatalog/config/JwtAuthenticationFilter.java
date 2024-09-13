@@ -39,13 +39,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // Bypass authentication for GUEST users accessing /guest/books or /auth/login/guest endpoints
-        if (request.getRequestURI().startsWith("/guest/books") || request.getRequestURI().startsWith("/auth/login/guest")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // Clear SecurityContext if there is no Authorization header, or it doesn't start with Bearer
         if (authHeader == null || !authHeader.startsWith("Bearer")) {
             SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
@@ -54,17 +47,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             final String jwt = authHeader.substring(7);
-            final String userEmail = jwtService.extractUsername(jwt);
+            final String username = jwtService.extractUsername(jwt);
 
-            if (userEmail == null) {
+            if (username == null) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            Authentication currentAuth = SecurityContextHolder.getContext().getAuthentication();
 
-            if (authentication == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            if (currentAuth == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
                 if (jwtService.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -76,16 +69,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 } else {
+
                     filterChain.doFilter(request, response);
                     return;
                 }
-            } else {
-                filterChain.doFilter(request, response);
-                return;
             }
 
             filterChain.doFilter(request, response);
         } catch (Exception exception) {
+
             handlerExceptionResolver.resolveException(request, response, null, exception);
         }
     }

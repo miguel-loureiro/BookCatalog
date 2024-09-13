@@ -6,8 +6,10 @@ import com.bookcatalog.bookcatalog.model.User;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Setter
 @Getter
@@ -17,7 +19,7 @@ public class UserDto {
     private String email;
     private Role role;
     private String coverImage;
-    private Set<Book> books;
+    private Set<BookTitleAndAuthorDto> books;
 
     public UserDto() {}
 
@@ -27,7 +29,11 @@ public class UserDto {
         this.email = user.getEmail();
         this.role = user.getRole();
         this.coverImage = user.getCoverImage();
-        this.books = user.getBooks();
+        this.books = user.getBooks() != null
+                ? user.getBooks().stream()
+                .map(book -> new BookTitleAndAuthorDto(book.getTitle(), book.getAuthor()))
+                .collect(Collectors.toSet())
+                : new HashSet<>();
     }
 
     public UserDto(String username, String email, Role role) {

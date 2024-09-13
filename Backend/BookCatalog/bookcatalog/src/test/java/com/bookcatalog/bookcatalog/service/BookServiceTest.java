@@ -5,9 +5,6 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
-import com.bookcatalog.bookcatalog.service.strategy.BookStrategyFactory;
-import com.bookcatalog.bookcatalog.service.strategy.delete.DeleteStrategy;
-import com.bookcatalog.bookcatalog.service.strategy.update.UpdateStrategy;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,15 +61,6 @@ public class BookServiceTest {
     private Authentication authentication;
 
     @Mock
-    private UpdateStrategy<Book> updateStrategy;
-
-    @Mock
-    private DeleteStrategy<Book> deleteStrategy;
-
-    @Mock
-    private BookStrategyFactory strategyFactory;
-
-    @Mock
     private UserService mockUserService;
 
     @Mock
@@ -99,7 +87,7 @@ public class BookServiceTest {
 
         MockitoAnnotations.openMocks(this);
 
-        bookService = new BookService(userRepository, bookRepository, strategyFactory, userService);
+        bookService = new BookService(userRepository, bookRepository, userService);
 
         SecurityContext securityContext = mock(SecurityContext.class);
         SecurityContextHolder.setContext(securityContext);
@@ -177,7 +165,7 @@ public class BookServiceTest {
     void testCreateBookWithNullBookRepository_Failure() {
 
         // Arrange
-        bookService = new BookService(userRepository, null, strategyFactory, userService);
+        bookService = new BookService(userRepository, null, userService);
 
         // Act and Assert
         Book book = new Book();
@@ -293,7 +281,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBook_ByTitle_Success() {
+    public void testGetBook_ByIdentifier_ByTitle_Success() {
         // Arrange
         User user = new User();
         user.setRole(Role.READER);
@@ -304,14 +292,14 @@ public class BookServiceTest {
         when(bookRepository.findBookByTitle("Title1")).thenReturn(Optional.of(book));
 
         // Act
-        Book result = bookService.getBook("Title1", "title");
+        Book result = bookService.getBookByIdentifier("Title1", "title");
 
         // Assert
         assertEquals(book, result);
     }
 
     @Test
-    public void testGetBook_ByTitle_NotFound() {
+    public void testGetBook_ByIdentifier_ByTitle_NotFound() {
         // Arrange
         User user = new User();
         user.setRole(Role.READER);
@@ -321,11 +309,11 @@ public class BookServiceTest {
         when(bookRepository.findBookByTitle("UnknownTitle")).thenReturn(Optional.empty());
 
         // Act and Assert
-        assertThrows(BookNotFoundException.class, () -> bookService.getBook("UnknownTitle", "title"));
+        assertThrows(BookNotFoundException.class, () -> bookService.getBookByIdentifier("UnknownTitle", "title"));
     }
 
     @Test
-    public void testGetBook_InvalidType() {
+    public void testGetBook_ByIdentifier_InvalidType() {
         // Arrange
         User user = new User();
         user.setRole(Role.READER);
@@ -334,11 +322,11 @@ public class BookServiceTest {
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
 
         // Act and Assert
-        assertThrows(IllegalArgumentException.class, () -> bookService.getBook("1", "invalidType"));
+        assertThrows(IllegalArgumentException.class, () -> bookService.getBookByIdentifier("1", "invalidType"));
     }
 
     @Test
-    public void testGetBook_ShouldThrowIllegalStateException() {
+    public void testGetBook_ByIdentifier_ShouldThrowIllegalStateException() {
         // Arrange
         User user = new User();
         user.setRole(Role.READER);
@@ -347,11 +335,11 @@ public class BookServiceTest {
         when(userService.getCurrentUser()).thenReturn(Optional.empty());
 
         // Act and Assert
-        assertThrows(IllegalStateException.class, () -> bookService.getBook("1", "id"));
+        assertThrows(IllegalStateException.class, () -> bookService.getBookByIdentifier("1", "id"));
     }
 
     @Test
-    public void testGetBooksByAuthor_BooksFound() {
+    public void testGetBooksByAuthor_BooksFoundByIdentifier() {
         // Arrange
         String author = "Author";
         int page = 0;
@@ -377,7 +365,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByAuthor_NoBooksFound() {
+    public void testGetBooksByAuthor_NoBooksFoundByIdentifier() {
         // Arrange
         String author = "Author";
         int page = 0;
@@ -511,7 +499,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserId_UserFound() throws ParseException {
+    public void testGetBooksByUserId_UserFoundByIdentifier() throws ParseException {
         // Arrange
         Integer userId = 1;
         User user = new User();
@@ -560,7 +548,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserId_UserFound_StartPageIsGreater_ReturnsEmptyList() throws ParseException {
+    public void testGetBooksByUserId_UserFound_StartPageIsGreater_ReturnsEmptyListByIdentifier() throws ParseException {
         // Arrange
         Integer userId = 1;
         User user = new User();
@@ -588,7 +576,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserId_UserNotFound() {
+    public void testGetBooksByUserId_UserNotFoundByIdentifier() {
         // Arrange
         Integer userId = 1;
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
@@ -601,7 +589,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserIdentifier_UserFoundByUsername() throws ParseException {
+    public void testGetBooksByUserIdentifier_UserFoundByUsernameByIdentifier() throws ParseException {
         // Arrange
         String identifier = "username";
         User user = new User();
@@ -650,7 +638,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserIdentifier_UserFoundByUsername_StartPageIsGreater_ReturnsEmptyList() throws ParseException {
+    public void testGetBooksByUserIdentifier_UserFoundByUsername_StartPageIsGreater_ReturnsEmptyListByIdentifier() throws ParseException {
         // Arrange
         String identifier = "username";
         User user = new User();
@@ -679,7 +667,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserIdentifier_UserFoundByEmail() throws ParseException {
+    public void testGetBooksByUserIdentifier_UserFoundByEmailByIdentifier() throws ParseException {
         // Arrange
         String identifier = "email@example.com";
         User user = new User();
@@ -727,7 +715,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserIdentifier_UserFoundByEmail_StartPageIsGreater_ReturnsEmptyList() throws ParseException {
+    public void testGetBooksByUserIdentifier_UserFoundByEmail_StartPageIsGreater_ReturnsEmptyListByIdentifier() throws ParseException {
         // Arrange
         String identifier = "email@example.com";
         User user = new User();
@@ -756,7 +744,7 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testGetBooksByUserIdentifier_UserNotFound() {
+    public void testGetBooksByUserIdentifier_UserNotFoundByIdentifier() {
         // Arrange
         String identifier = "nonexistent";
         when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
@@ -780,7 +768,6 @@ public class BookServiceTest {
         Book newBookDetails = new Book("NewTitle", "NewAuthor");
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
-        when(strategyFactory.getUpdateStrategy("title")).thenReturn(updateStrategy);
         when(bookRepository.findBookByTitle("Title1")).thenReturn(Optional.of(existingBook));
 
         // Act
@@ -810,7 +797,6 @@ public class BookServiceTest {
         user.setRole(Role.READER);
         mockCurrentUser(user);
 
-        when(strategyFactory.getUpdateStrategy(anyString())).thenReturn(updateStrategy);
         when(userService.getCurrentUser()).thenReturn(Optional.of(user));
 
         // Act
@@ -830,7 +816,6 @@ public class BookServiceTest {
         Book newBookDetails = new Book();
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(user));
-        when(strategyFactory.getUpdateStrategy(anyString())).thenReturn(updateStrategy);
         when(bookRepository.findById(anyInt())).thenThrow(new BookNotFoundException("Book not found", null));
 
         // Act
@@ -851,7 +836,6 @@ public class BookServiceTest {
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(user));
         when(bookRepository.getReferenceById(1)).thenReturn(existingBook);
-        when(strategyFactory.getUpdateStrategy(anyString())).thenReturn(null);
 
         // Act
         ResponseEntity<?> response = bookService.updateBook("1", "id", new Book(), null);
@@ -871,7 +855,6 @@ public class BookServiceTest {
         Book newDetails = new Book("New title", "New Author");
 
         when(bookRepository.getReferenceById(anyInt())).thenReturn(existingBook);
-        when(strategyFactory.getUpdateStrategy(anyString())).thenReturn(updateStrategy);
         doThrow(new IOException()).when(updateStrategy).update(existingBook, newDetails, null);
 
         // Act
@@ -900,7 +883,6 @@ public class BookServiceTest {
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
         when(bookRepository.getReferenceById(any())).thenReturn(existingBook);
-        when(strategyFactory.getUpdateStrategy(type)).thenReturn(updateStrategy);
 
         // Act
         ResponseEntity<?> response = bookService.updateBook(identifier, type, newBookDetails, filename);
@@ -919,7 +901,6 @@ public class BookServiceTest {
 
         Book book = new Book("Title1", "Author1");
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
-        when(strategyFactory.getDeleteStrategy("title")).thenReturn(deleteStrategy);
         when(bookRepository.findBookByTitle("Title1")).thenReturn(Optional.of(book));
 
         // Act
@@ -949,7 +930,6 @@ public class BookServiceTest {
         user.setRole(Role.READER);
         mockCurrentUser(user);
 
-        when(strategyFactory.getDeleteStrategy("id")).thenReturn(deleteStrategy);
         when(userService.getCurrentUser()).thenReturn(Optional.of(user));
 
         // Act
@@ -967,7 +947,6 @@ public class BookServiceTest {
         mockCurrentUser(user);
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(user));
-        when(strategyFactory.getDeleteStrategy(anyString())).thenReturn(null);
 
         // Act
         ResponseEntity<Void> response = bookService.deleteBook("1", "id");
@@ -984,7 +963,6 @@ public class BookServiceTest {
         mockCurrentUser(user);
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(user));
-        when(strategyFactory.getDeleteStrategy(anyString())).thenReturn(deleteStrategy);
         when(bookRepository.getReferenceById(anyInt())).thenThrow(new EntityNotFoundException());
 
         // Act
@@ -1005,7 +983,6 @@ public class BookServiceTest {
         // Arrange
         Book book = new Book("Title1", "Author1");
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
-        when(strategyFactory.getDeleteStrategy("title")).thenReturn(deleteStrategy);
         when(bookRepository.findBookByTitle("Title1")).thenReturn(Optional.of(book));
 
         // Act
@@ -1024,7 +1001,6 @@ public class BookServiceTest {
         mockCurrentUser(user);
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(user));
-        when(strategyFactory.getDeleteStrategy(anyString())).thenReturn(deleteStrategy);
         when(bookRepository.getReferenceById(anyInt())).thenReturn(new Book());
         doThrow(IllegalArgumentException.class).when(deleteStrategy).delete(any(Book.class));
 

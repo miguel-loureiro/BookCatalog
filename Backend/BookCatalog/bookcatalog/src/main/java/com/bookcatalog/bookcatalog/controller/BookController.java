@@ -1,12 +1,16 @@
 package com.bookcatalog.bookcatalog.controller;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Set;
 
 import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
+import com.bookcatalog.bookcatalog.model.dto.BookDetailWithoutUserListDto;
+import com.bookcatalog.bookcatalog.model.dto.BookDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -32,7 +36,7 @@ public class BookController {
     public ResponseEntity<?> getBook(@PathVariable String type, @PathVariable String identifier) {
 
         try {
-            Book book = bookService.getBook(identifier, type);
+            BookDto book = bookService.getBookWithShortUserDetails(identifier, type);
             return ResponseEntity.ok(book);
         } catch (BookNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -41,61 +45,56 @@ public class BookController {
 
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<Page<Book>> getAllBooks(@RequestParam(name = "page", defaultValue = "0") int page,
-                                                  @RequestParam(name = "size", defaultValue = "10") int size) throws IOException {
+    public ResponseEntity<Page<BookDto>> getAllBooks(@RequestParam(name = "page", defaultValue = "0") int page,
+                                                     @RequestParam(name = "size", defaultValue = "10") int size) throws IOException {
 
         return bookService.getAllBooks(page, size);
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<Page<Book>> getBooksByUserId(@PathVariable Integer userId,
-                                                       @RequestParam(name = "page", defaultValue = "0") int page,
-                                                       @RequestParam(name = "size", defaultValue = "10") int size) {
+    @GetMapping("/books/only")
+    public ResponseEntity<Set<BookDetailWithoutUserListDto>> getBooksOnly(@RequestParam(defaultValue = "0") int page,
+                                                                          @RequestParam(defaultValue = "10") int size) {
+        return bookService.getOnlyBooks(page, size);
+    }
 
-        Page<Book> books = bookService.getBooksByUserId(userId, page, size);
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<Page<BookDetailWithoutUserListDto>> getBooksByUserId(@PathVariable Integer userId,
+                                                                               @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                               @RequestParam(name = "size", defaultValue = "10") int size) {
+
+        Page<BookDetailWithoutUserListDto> books = bookService.getBooksByUserId(userId, page, size);
         return books.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(books);
     }
 
     @GetMapping("/user/identifier")
-    public ResponseEntity<Page<Book>> getBooksByUserIdentifier(@RequestParam String identifier,
-                                                               @RequestParam(name = "page", defaultValue = "0") int page,
-                                                               @RequestParam(name = "size", defaultValue = "10") int size) {
+    public ResponseEntity<Page<BookDetailWithoutUserListDto>> getBooksByUserIdentifier(@RequestParam String identifier,
+                                                                                       @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                                       @RequestParam(name = "size", defaultValue = "10") int size) {
 
-        Page<Book> books = bookService.getBooksByUserIdentifier(identifier, page, size);
+        Page<BookDetailWithoutUserListDto> books = bookService.getBooksByUserIdentifier(identifier, page, size);
         return books.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(books);
     }
 
-    @PostMapping(consumes = {"multipart/form-data"})
+    @PostMapping(value = "/new", consumes = {"multipart/form-data"})
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<?> createBook(@RequestPart("book") Book book,
-                                        @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+    public ResponseEntity<?> createBook(
+            @RequestPart("book") BookDetailWithoutUserListDto book,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
+        // Delegate the creation process to the service
         return bookService.createBook(book, file);
-    }
+        }
 
     @PutMapping("/{type}/{identifier}")
     public ResponseEntity<?> updateBook(@PathVariable String type, @PathVariable String identifier,
                                         @RequestPart("book") Book bookDetails,
                                         @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
 
-        if(bookDetails == null) {
+        if (bookDetails == null) {
             return ResponseEntity.badRequest().body("The 'book' part is required.");
         }
 
-        String filename = null;
-        if (file != null ) {
-
-            if (file.getSize() > MAX_FILE_SIZE) {
-
-                return ResponseEntity.badRequest().body("File size exceeds 2MB size limit");
-            }
-
-            filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filepath = Paths.get(UPLOAD_DIR, filename);
-            Files.createDirectories(filepath.getParent());
-            Files.write(filepath, file.getBytes());
-        }
-        return bookService.updateBook(identifier, type, bookDetails, filename);
+        return bookService.updateBook(identifier, type, bookDetails, file);
     }
 
     @DeleteMapping("/{type}/{identifier}")

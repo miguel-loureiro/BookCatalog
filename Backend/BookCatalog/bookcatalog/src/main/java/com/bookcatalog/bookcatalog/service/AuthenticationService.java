@@ -69,7 +69,7 @@ public class AuthenticationService {
     }
 
     public User getGuestUser() {
-        // Return a user with GUEST role
+
         User guestUser = new User();
         guestUser.setUsername("guestuser");
         guestUser.setRole(Role.GUEST);
@@ -78,12 +78,14 @@ public class AuthenticationService {
 
     private void validateInput(RegisterUserDto input) {
         if (input == null || input.getUsername() == null || input.getEmail() == null || input.getPassword() == null || input.getRole() == null) {
+
             throw new IllegalArgumentException("All fields are required for registration.");
         }
     }
 
     private void validateUser(User user) {
         if (user == null || user.getUsername() == null || user.getEmail() == null || user.getPassword() == null || user.getRole() == null) {
+
             throw new IllegalStateException("User fields are not properly set.");
         }
     }

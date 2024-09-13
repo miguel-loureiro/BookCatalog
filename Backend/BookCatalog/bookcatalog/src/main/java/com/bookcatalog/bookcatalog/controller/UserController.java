@@ -1,22 +1,19 @@
 package com.bookcatalog.bookcatalog.controller;
 
+import com.bookcatalog.bookcatalog.exceptions.InvalidUserRoleException;
 import com.bookcatalog.bookcatalog.exceptions.UserNotFoundException;
-import com.bookcatalog.bookcatalog.model.CustomUserDetails;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.dto.*;
 import com.bookcatalog.bookcatalog.service.AuthenticationService;
-import com.bookcatalog.bookcatalog.service.BookService;
 import com.bookcatalog.bookcatalog.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import com.bookcatalog.bookcatalog.model.User;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Optional;
 
 import org.springframework.http.ResponseEntity;
@@ -69,6 +66,12 @@ public class UserController {
         }
     }
 
+    @PostMapping(value = "/new", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<UserDto> createUser(@RequestBody RegisterUserDto registerUserDto) {
+
+        return userService.createUser(registerUserDto);
+    }
+
     @DeleteMapping("/{type}/{identifier}")
     public ResponseEntity<Void> deleteUser(@PathVariable String type, @PathVariable String identifier) throws IOException {
 
@@ -76,7 +79,7 @@ public class UserController {
     }
 
     @PutMapping("{type}/{identifier}")
-    public ResponseEntity<Void> updateUser(@PathVariable String type, @PathVariable String identifier,@RequestBody UserDto input) throws IOException {
+    public ResponseEntity<UserDto> updateUser(@PathVariable String type, @PathVariable String identifier,@RequestBody UserDto input) throws IOException {
 
         return userService.updateUser(identifier, type, input);
     }

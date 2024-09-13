@@ -27,17 +27,6 @@ public class AuthenticationController {
         this.authenticationService = authenticationService;
     }
 
-    @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<User> registerUser(@RequestBody RegisterUserDto registerUserDto) {
-
-        if (registerUserDto.getRole() == Role.SUPER || registerUserDto.getRole() == Role.ADMIN) {
-            throw new InvalidUserRoleException("Cannot sign up with role SUPER or ADMIN");
-        }
-
-        User registeredUser = authenticationService.signup(registerUserDto);
-        return ResponseEntity.ok(registeredUser);
-    }
-
     @PostMapping("/login")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN') or hasRole('READER')")
     public ResponseEntity<LoginResponse> authenticate(@RequestBody LoginUserDto loginUserDto) {
@@ -47,29 +36,14 @@ public class AuthenticationController {
         }
 
         User authenticatedUser = authenticationService.authenticate(loginUserDto);
-        String jwtToken = jwtService.generateToken(authenticatedUser);
-        long expirationTime = jwtService.getExpirationTime();
 
-        LoginResponse response = new LoginResponse()
-                .setToken(jwtToken)
-                .setExpiresIn(expirationTime);
-
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/loginguest")
-    public ResponseEntity<LoginResponse> authenticateGuest() {
-
-        User guestUser = authenticationService.getGuestUser();
-
-        if (guestUser == null) {
-
-            guestUser = new User();
-            guestUser.setUsername("guestuser");
-            guestUser.setRole(Role.GUEST);
+        if (authenticatedUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();  // Authentication failed
         }
 
-        String jwtToken = jwtService.generateToken(new CustomUserDetails(guestUser));
+        CustomUserDetails customUserDetails = new CustomUserDetails(authenticatedUser);
+
+        String jwtToken = jwtService.generateToken(customUserDetails);
         long expirationTime = jwtService.getExpirationTime();
 
         LoginResponse response = new LoginResponse()

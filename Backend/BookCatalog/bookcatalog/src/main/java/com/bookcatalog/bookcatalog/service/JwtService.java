@@ -50,15 +50,14 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
-    public String generateToken(UserDetails userDetails) {
-        // Handle the case when no user details are provided or the user is a dummy GUEST
+    public String generateToken(CustomUserDetails userDetails) {
+
         if (userDetails == null || "guestuser".equals(userDetails.getUsername())) {
-            // Create a "dummy" CustomUserDetails for the GUEST user
+
             CustomUserDetails guestUserDetails = createGuestUserDetails();
             return generateToken(new HashMap<>(), guestUserDetails);
         }
 
-        // Regular user token generation
         Optional<User> userOptional = userRepository.findByUsername(userDetails.getUsername());
         if (userOptional.isPresent()) {
             return generateToken(new HashMap<>(), userDetails);
@@ -67,7 +66,7 @@ public class JwtService {
         }
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+    public String generateToken(Map<String, Object> extraClaims, CustomUserDetails userDetails) {
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
@@ -76,19 +75,21 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
+
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
     String buildToken(
             Map<String, Object> extraClaims,
-            UserDetails userDetails,
+            CustomUserDetails userDetails,
             long expiration
     ) {
         return Jwts
                 .builder()
                 .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
+                .claim("role", userDetails.getUser().getRole().name())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
@@ -121,15 +122,13 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // New method to create UserDetails for a GUEST user
     private CustomUserDetails createGuestUserDetails() {
         // Create a User object for the GUEST user
         User guestUser = new User();
         guestUser.setUsername("guestuser");
-        guestUser.setPassword(""); // No password required for GUEST users
-        guestUser.setRole(Role.GUEST); // Assuming there is an enum Role with GUEST role
+        guestUser.setPassword(""); //
+        guestUser.setRole(Role.GUEST);
 
-        // Return CustomUserDetails with the GUEST user
         return new CustomUserDetails(guestUser);
     }
 }

@@ -8,10 +8,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
+@Setter
+@Getter
 public class CustomUserDetails implements UserDetails {
 
-    @Getter
-    @Setter
     private User user;
 
     public CustomUserDetails(User user) {

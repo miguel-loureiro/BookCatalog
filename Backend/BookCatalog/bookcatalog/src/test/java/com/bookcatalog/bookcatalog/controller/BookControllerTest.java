@@ -2,7 +2,6 @@ package com.bookcatalog.bookcatalog.controller;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -16,7 +15,6 @@ import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.repository.BookRepository;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import com.bookcatalog.bookcatalog.service.UserService;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,7 +100,7 @@ public class BookControllerTest {
         // Arrange
         Book foundBook = new Book("Title", "Author");
 
-        when(bookService.getBook(anyString(), anyString())).thenReturn(foundBook);
+        when(bookService.getBookByIdentifier(anyString(), anyString())).thenReturn(foundBook);
 
         // Act
         ResponseEntity<?> response = bookController.getBook("title", "Title");
@@ -115,7 +113,7 @@ public class BookControllerTest {
     @Test
     public void testGetBook_NotFound_Failure() {
         // Arrange
-        when(bookService.getBook(anyString(), anyString())).thenThrow(new BookNotFoundException("Book not found", null));
+        when(bookService.getBookByIdentifier(anyString(), anyString())).thenThrow(new BookNotFoundException("Book not found", null));
 
         // Act
         ResponseEntity<?> response = bookController.getBook("title", "Title");

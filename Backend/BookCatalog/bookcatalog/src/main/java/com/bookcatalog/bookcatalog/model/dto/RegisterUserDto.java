@@ -31,6 +31,7 @@ public class RegisterUserDto {
     private Role role;
 
     public RegisterUserDto(String username, String email, String password, Role role) {
+
         this.username = username;
         this.email = email;
         this.password = password;
