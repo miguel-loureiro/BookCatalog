@@ -220,14 +220,11 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         if (principal instanceof UserDetails) {
 
             CustomUserDetails userDetails = (CustomUserDetails) principal;
-            User currentUser = new User();
-            currentUser.setUsername(userDetails.getUsername());
-            currentUser.setRole(Role.GUEST);
-            return Optional.of(currentUser);
+
+            return userRepository.findByIdWithBooks(userDetails.getUser().getId());
         }
 
         return Optional.empty();
-
     }
 
     private boolean hasPermissionToCreateUser(User currentUser, User targetUser) {

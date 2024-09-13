@@ -13,7 +13,7 @@ public class BookDetailWithoutUserListDto {
     private String isbn;
     private String price;
     private String publishDate;
-    private String coverImage;
+    private String coverImageUrl;
 
     public BookDetailWithoutUserListDto(Book book) {
         this.title = book.getTitle();
@@ -21,15 +21,15 @@ public class BookDetailWithoutUserListDto {
         this.isbn = book.getIsbn();
         this.price = book.getPrice();
         this.publishDate = book.getPublishDate();
-        this.coverImage = book.getCoverImage();
+        this.coverImageUrl = book.getCoverImageUrl();
     }
 
-    public BookDetailWithoutUserListDto(String title, String author, String isbn, String price, String publishDate, String coverImage) {
+    public BookDetailWithoutUserListDto(String title, String author, String isbn, String price, String publishDate, String coverImageUrl) {
         this.title = title;
         this.author = author;
         this.isbn = isbn;
         this.price = price;
         this.publishDate = publishDate;
-        this.coverImage = coverImage;
+        this.coverImageUrl = coverImageUrl;
     }
 }

@@ -8,7 +8,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.Assertions;
@@ -42,7 +41,7 @@ public class BookTest {
         Assertions.assertNull(emptyBook.getAuthor());
         Assertions.assertNull(emptyBook.getPrice());
         Assertions.assertNull(emptyBook.getPublishDate());
-        Assertions.assertNull(emptyBook.getCoverImage());
+        Assertions.assertNull(emptyBook.getCoverImageUrl());
     }
 
     @Test
@@ -52,7 +51,7 @@ public class BookTest {
         Assertions.assertEquals("Author", book.getAuthor());
         Assertions.assertEquals("9781234567890", book.getIsbn());
         Assertions.assertEquals("19.99", book.getPrice());
-        Assertions.assertEquals("cover.jpg", book.getCoverImage());
+        Assertions.assertEquals("cover.jpg", book.getCoverImageUrl());
         Assertions.assertEquals(users, book.getUsers());
     }
 
@@ -65,7 +64,7 @@ public class BookTest {
         book.setAuthor("New Author");
         book.setIsbn("9789876543210");
         book.setPrice("29.99");
-        book.setCoverImage("newcover.jpg");
+        book.setCoverImageUrl("newcover.jpg");
 
         Assertions.assertNotNull(book.getId());
         Assertions.assertEquals(book.getId(),2);
@@ -73,7 +72,7 @@ public class BookTest {
         Assertions.assertEquals("New Author", book.getAuthor());
         Assertions.assertEquals("9789876543210", book.getIsbn());
         Assertions.assertEquals("29.99", book.getPrice());
-        Assertions.assertEquals("newcover.jpg", book.getCoverImage());
+        Assertions.assertEquals("newcover.jpg", book.getCoverImageUrl());
     }
 
     @Test

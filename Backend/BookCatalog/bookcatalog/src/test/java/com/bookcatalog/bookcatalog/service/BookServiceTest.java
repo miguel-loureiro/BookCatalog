@@ -271,9 +271,9 @@ public class BookServiceTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(book, response.getBody());
-        assertNotNull(book.getCoverImage());
+        assertNotNull(book.getCoverImageUrl());
 
-        Path savedFilePath = Paths.get(UPLOAD_DIR, book.getCoverImage());
+        Path savedFilePath = Paths.get(UPLOAD_DIR, book.getCoverImageUrl());
         assertTrue(Files.exists(savedFilePath));
         Files.deleteIfExists(savedFilePath);
 

@@ -49,11 +49,11 @@ class UserDtoTest {
         books2.add(mockBook2);
 
         userDto1 = new UserDto("username", "email@example.com", Role.ADMIN);
-        userDto1.setCoverImage("coverImage.jpg");
+        userDto1.setCoverImage("coverImageUrl.jpg");
         userDto1.setBooks(books1);
 
         userDto2 = new UserDto("username", "email@example.com", Role.ADMIN);
-        userDto2.setCoverImage("coverImage.jpg");
+        userDto2.setCoverImage("coverImageUrl.jpg");
         userDto2.setBooks(books2);
     }
 
@@ -172,11 +172,11 @@ class UserDtoTest {
     @Test
     public void testEqualsAndHashCode() {
         UserDto userDto1 = new UserDto("testUser", "test@example.com", Role.READER);
-        userDto1.setCoverImage("coverImage.jpg");
+        userDto1.setCoverImage("coverImageUrl.jpg");
         userDto1.setBooks(mockBooks);
 
         UserDto userDto2 = new UserDto("testUser", "test@example.com", Role.READER);
-        userDto2.setCoverImage("coverImage.jpg");
+        userDto2.setCoverImage("coverImageUrl.jpg");
         userDto2.setBooks(mockBooks);
 
         UserDto userDto3 = new UserDto("differentUser", "different@example.com", Role.READER);
@@ -245,11 +245,11 @@ class UserDtoTest {
     public void testEquals_AllFieldsEqual() {
         // Arrange
         userDto1 = new UserDto("username", "email@example.com", Role.ADMIN);
-        userDto1.setCoverImage("coverImage.jpg");
+        userDto1.setCoverImage("coverImageUrl.jpg");
         userDto1.setBooks(books1);
 
         userDto2 = new UserDto("username", "email@example.com", Role.ADMIN);
-        userDto2.setCoverImage("coverImage.jpg");
+        userDto2.setCoverImage("coverImageUrl.jpg");
         userDto2.setBooks(books1);
 
         // Assert

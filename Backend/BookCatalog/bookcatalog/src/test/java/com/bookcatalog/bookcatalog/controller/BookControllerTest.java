@@ -244,7 +244,7 @@ public class BookControllerTest {
         MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[(int) (MAX_FILE_SIZE - 1)]);
 
         Book savedBook = new Book();
-        savedBook.setCoverImage("timestamp_test.jpg");
+        savedBook.setCoverImageUrl("timestamp_test.jpg");
 
         when(bookService.createBook(any(Book.class), any(MultipartFile.class))).thenReturn(ResponseEntity.ok(savedBook));
 

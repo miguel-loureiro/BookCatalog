@@ -75,26 +75,21 @@ public class BookController {
         return books.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(books);
     }
 
-    @PostMapping(value = "/new", consumes = {"multipart/form-data"})
+    @PostMapping(value = "/new")
     @PreAuthorize("hasRole('SUPER') or hasRole('ADMIN')")
-    public ResponseEntity<?> createBook(
-            @RequestPart("book") BookDetailWithoutUserListDto book,
-            @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
-
-        // Delegate the creation process to the service
-        return bookService.createBook(book, file);
-        }
+    public ResponseEntity<?> createBook(@RequestBody BookDetailWithoutUserListDto book) throws IOException {
+        return bookService.createBook(book);
+    }
 
     @PutMapping("/{type}/{identifier}")
     public ResponseEntity<?> updateBook(@PathVariable String type, @PathVariable String identifier,
-                                        @RequestPart("book") Book bookDetails,
-                                        @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+                                        @RequestBody Book bookDetails) throws IOException {
 
         if (bookDetails == null) {
             return ResponseEntity.badRequest().body("The 'book' part is required.");
         }
 
-        return bookService.updateBook(identifier, type, bookDetails, file);
+        return bookService.updateBook(identifier, type, bookDetails);
     }
 
     @DeleteMapping("/{type}/{identifier}")
@@ -103,21 +98,15 @@ public class BookController {
         return bookService.deleteBook(identifier, type);
     }
 
-    @PutMapping("/{type}/{identifier}/add-to-user")
+    @PutMapping("/addtouser/{type}/{identifier}")
     public ResponseEntity<?> addBookToCurrentUser(@PathVariable String type, @PathVariable String identifier) {
 
         return bookService.addBookToCurrentUser(identifier, type);
     }
 
-    @DeleteMapping("/{type}/{identifier}/remove-from-user")
+    @DeleteMapping("/delfromuser/{type}/{identifier}")
     public ResponseEntity<?> deleteBookFromCurrentUser(@PathVariable String type, @PathVariable String identifier) {
 
         return bookService.deleteBookFromCurrentUser(identifier, type);
-    }
-
-    @PostMapping("/save-all")
-    public ResponseEntity<?> saveAllBooks(@RequestBody List<Book> books) {
-        bookService.saveAll(books);
-        return ResponseEntity.ok().build();
     }
 }

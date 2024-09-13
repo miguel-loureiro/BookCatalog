@@ -41,7 +41,7 @@ public class Book {
 
     @Setter
     @Getter
-    private String coverImage;
+    private String coverImageUrl;
 
     @Getter
     @ManyToMany(mappedBy = "books")
@@ -51,25 +51,25 @@ public class Book {
 
     }
 
-    public Book(String title, String author, String isbn, String price, Date publishDate, String coverImage, Set<User> users) {
+    public Book(String title, String author, String isbn, String price, Date publishDate, String coverImageUrl, Set<User> users) {
 
         this.title = title;
         this.author = author;
         this.isbn = isbn;
         this.price = price;
         this.publishDate = publishDate;
-        this.coverImage = coverImage;
+        this.coverImageUrl = coverImageUrl;
         this.users = users;
     }
 
-    public Book(String title, String author, String isbn, String price, Date publishDate, String coverImage) {
+    public Book(String title, String author, String isbn, String price, Date publishDate, String coverImageUrl) {
 
         this.title = title;
         this.author = author;
         this.isbn = isbn;
         this.price = price;
         this.publishDate = publishDate;
-        this.coverImage = coverImage;
+        this.coverImageUrl = coverImageUrl;
     }
 
     public Book(Integer id, String title, String author) {
@@ -80,7 +80,7 @@ public class Book {
         this.isbn = "000000000000";
         this.price = "0.00";
         this.publishDate = new Date();
-        this.coverImage = "default_cover.jpg";
+        this.coverImageUrl = "https://example.com/image.jpg";
     }
 
     public Book(String title, String author) {
@@ -90,7 +90,7 @@ public class Book {
         this.isbn = "000000000000";
         this.price = "0.00";
         this.publishDate = new Date();
-        this.coverImage = "default_cover.jpg";
+        this.coverImageUrl = "https://example.com/image.jpg";
     }
 
     public String getPublishDate() {

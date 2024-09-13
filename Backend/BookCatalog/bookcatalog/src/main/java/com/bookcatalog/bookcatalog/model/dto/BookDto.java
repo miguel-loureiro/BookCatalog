@@ -24,7 +24,7 @@ public class BookDto {
         this.isbn = book.getIsbn();
         this.price = book.getPrice();
         this.publishDate = book.getPublishDate();
-        this.coverImage = book.getCoverImage();
+        this.coverImage = book.getCoverImageUrl();
         this.users = book.getUsers().stream()
                 .map(user -> user.getUsername())
                 .collect(Collectors.toSet());

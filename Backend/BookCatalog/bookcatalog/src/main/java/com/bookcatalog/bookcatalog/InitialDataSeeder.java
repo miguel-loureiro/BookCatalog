@@ -130,7 +130,7 @@ public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEv
         List<Book> books = new ArrayList<>();
 
         for (int i = 1; i <= 100; i++) {
-            Book book = new Book("Title " + i, "Author " + i, generateRandomISBN13(), "Price " + i, new Date(), "coverImage" + i + ".jpg", null);
+            Book book = new Book("Title " + i, "Author " + i, generateRandomISBN13(), "Price " + i, new Date(), "coverImageUrl" + i + ".jpg", null);
             books.add(book);
         }
         return bookRepository.saveAll(books);

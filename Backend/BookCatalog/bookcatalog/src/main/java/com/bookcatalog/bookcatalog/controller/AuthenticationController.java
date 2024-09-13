@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +37,8 @@ public class AuthenticationController {
             return ResponseEntity.badRequest().build();
         }
 
+        SecurityContextHolder.clearContext();
+
         User authenticatedUser = authenticationService.authenticate(loginUserDto);
 
         if (authenticatedUser == null) {
@@ -45,6 +49,10 @@ public class AuthenticationController {
 
         String jwtToken = jwtService.generateToken(customUserDetails);
         long expirationTime = jwtService.getExpirationTime();
+
+        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                customUserDetails, null, customUserDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authToken);
 
         LoginResponse response = new LoginResponse()
                 .setToken(jwtToken)

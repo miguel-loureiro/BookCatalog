@@ -1,14 +1,10 @@
 package com.bookcatalog.bookcatalog.service;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
-import com.bookcatalog.bookcatalog.helpers.FileUploadHelper;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.BookDetailWithoutUserListDto;
@@ -23,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.repository.BookRepository;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,8 +30,9 @@ public class BookService {
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
     private final UserService userService;
-    private static final String UPLOAD_DIR = System.getProperty("user.dir") + "/uploads";
-    private static final long MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+    //TODO: use in a future iteration where file will be uploaded to S3 storage
+    //private static final String UPLOAD_DIR = System.getProperty("user.dir") + "/uploads";
+    //private static final long MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
     @Autowired
     public BookService(UserRepository userRepository, BookRepository bookRepository, UserService userService) {
@@ -44,7 +42,7 @@ public class BookService {
         this.userService = userService;
     }
 
-    public ResponseEntity<Book> createBook(BookDetailWithoutUserListDto bookDto, MultipartFile file) throws IOException {
+    public ResponseEntity<Book> createBook(BookDetailWithoutUserListDto bookDto) {
 
         try {
             Optional<User> currentUserOpt = userService.getCurrentUser();
@@ -63,37 +61,13 @@ public class BookService {
             book.setIsbn(bookDto.getIsbn());
             book.setPrice(bookDto.getPrice());
             book.setPublishDate(bookDto.getPublishDate());
-
-
-            if (file != null && !file.isEmpty()) {
-                try {
-                    String fileName = FileUploadHelper.saveFile(file);
-                    book.setCoverImage(fileName);  // Set the cover image
-                } catch (IOException e) {
-                    return ResponseEntity.badRequest().eTag("Failed to upload").build();
-                }
-            } else {
-                book.setCoverImage(null);
-            }
+            book.setCoverImageUrl(bookDto.getCoverImageUrl());
 
             Book savedBook = bookRepository.save(book);
             return ResponseEntity.ok(savedBook);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
-    }
-
-    public Book createBook(BookDetailWithoutUserListDto bookDto) throws IOException {
-
-        Book book = new Book();
-        book.setTitle(bookDto.getTitle());
-        book.setAuthor(bookDto.getAuthor());
-        book.setIsbn(bookDto.getIsbn());
-        book.setPrice(bookDto.getPrice());
-        book.setPublishDate((bookDto.getPublishDate()));
-        book.setCoverImage(bookDto.getCoverImage());
-
-        return bookRepository.save(book);
     }
 
     public Book createBook(Book book) {
@@ -159,7 +133,7 @@ public class BookService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Pageable paging = PageRequest.of(page, size, Sort.by("author").and(Sort.by("title")).ascending());
+        Pageable paging = PageRequest.of(page, size, Sort.by("title").ascending());
         Page<Book> booksPage = bookRepository.findAll(paging);
 
         Page<BookDto> bookDtos = booksPage.map(book -> new BookDto(book));
@@ -237,7 +211,7 @@ public class BookService {
         }).orElse(Page.empty(PageRequest.of(page, size)));
     }
 
-    public ResponseEntity<Book> updateBook(String identifier, String type, Book newBookDetails, MultipartFile file) throws IOException {
+    public ResponseEntity<Book> updateBook(String identifier, String type, Book newBookDetails) throws IOException {
 
         Optional<User> currentUserOpt = userService.getCurrentUser();
         if (currentUserOpt.isEmpty()) {
@@ -256,19 +230,6 @@ public class BookService {
         }
 
         newBookDetails.setId(existingBook.getId());
-
-        if (file != null && !file.isEmpty()) {
-
-            if (file.getSize() > MAX_FILE_SIZE) {
-                return ResponseEntity.badRequest().build();
-            }
-
-            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filepath = Paths.get(UPLOAD_DIR, filename);
-            Files.createDirectories(filepath.getParent());
-            Files.write(filepath, file.getBytes());
-            newBookDetails.setCoverImage(filename);
-        }
 
         bookRepository.save(newBookDetails);
 
@@ -301,10 +262,18 @@ public class BookService {
         bookRepository.saveAll(books);
     }
 
+    @Transactional
     public ResponseEntity<Object> addBookToCurrentUser(String identifier, String type) {
+        return modifyBookCollectionForCurrentUser(identifier, type, true);
+    }
 
+    @Transactional
+    public ResponseEntity<Object> deleteBookFromCurrentUser(String identifier, String type) {
+        return modifyBookCollectionForCurrentUser(identifier, type, false);
+    }
+
+    private ResponseEntity<Object> modifyBookCollectionForCurrentUser(String identifier, String type, boolean isAdding) {
         try {
-
             Optional<User> currentUserOpt = userService.getCurrentUser();
             if (currentUserOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -312,8 +281,8 @@ public class BookService {
             }
 
             User currentUser = currentUserOpt.get();
-
             Book book;
+
             try {
                 book = getBookByIdentifier(identifier, type);
             } catch (BookNotFoundException e) {
@@ -321,66 +290,22 @@ public class BookService {
                         .body(e.getMessage());
             }
 
-            if (currentUser.getBooks().add(book)) {
-                UserDto updatedUserDto = new UserDto(currentUser);
+            boolean modificationSuccess;
+            if (isAdding) {
 
-                try {
-
-                    userService.updateUser(currentUser.getUsername(), "username", updatedUserDto);
-                } catch (IOException e) {
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body("Failed to update user after adding book: " + e.getMessage());
-                }
-
-                return ResponseEntity.ok().build();
+                modificationSuccess = currentUser.getBooks().add(book);
             } else {
-
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body("Book already in user's collection");
-            }
-        } catch (Exception e) {
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("An unexpected error occurred: " + e.getMessage());
-        }
-    }
-
-    public ResponseEntity<Object> deleteBookFromCurrentUser(String identifier, String type) {
-
-        try {
-
-            Optional<User> currentUserOpt = userService.getCurrentUser();
-            if (currentUserOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Current user not found");
+                modificationSuccess = currentUser.getBooks().remove(book);
             }
 
-            User currentUser = currentUserOpt.get();
+            if (!modificationSuccess) {
 
-            Book book;
-            try {
-                book = getBookByIdentifier(identifier, type);
-            } catch (BookNotFoundException e) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+                return ResponseEntity.status(isAdding ? HttpStatus.CONFLICT : HttpStatus.NOT_FOUND)
+                        .body(isAdding ? "Book already in user's collection" : "Book not found in user's collection");
             }
 
-            if (currentUser.getBooks().remove(book)) {
-
-                UserDto updatedUserDto = new UserDto(currentUser);
-
-                try {
-
-                    userService.updateUser(currentUser.getUsername(), "username", updatedUserDto);
-                } catch (IOException e) {
-
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body("Failed to update user after removing book: " + e.getMessage());
-                }
-
-                return ResponseEntity.noContent().build();
-            } else {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Book not found in user's collection");
-            }
+            userRepository.save(currentUser);
+            return ResponseEntity.ok().build();
         } catch (Exception e) {
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -416,18 +341,7 @@ public class BookService {
         bookToUpdate.setPrice(newBookDetails.getPrice());
         bookToUpdate.setIsbn(newBookDetails.getIsbn());
         bookToUpdate.setPublishDate(newBookDetails.getPublishDate());
-
-        if (file != null && !file.isEmpty()) {
-            if (file.getSize() > MAX_FILE_SIZE) {
-                throw new IOException("File size exceeds the limit");
-            }
-
-            String filename = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filepath = Paths.get(UPLOAD_DIR, filename);
-            Files.createDirectories(filepath.getParent());
-            Files.write(filepath, file.getBytes());
-            bookToUpdate.setCoverImage(filename);
-        }
+        bookToUpdate.setCoverImageUrl(newBookDetails.getCoverImageUrl());
         }
 
     private boolean hasPermissionToViewCompleteBooksWithUsers(User currentUser) {

@@ -44,6 +44,8 @@ public class GuestController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> authenticateGuest() {
 
+        SecurityContextHolder.clearContext();
+
         User guestUser = new User();
         guestUser.setUsername("guestuser");
         guestUser.setRole(Role.GUEST);
