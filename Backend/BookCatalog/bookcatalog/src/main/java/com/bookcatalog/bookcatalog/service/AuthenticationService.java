@@ -33,17 +33,15 @@ public class AuthenticationService {
         validateInput(input);
 
         if (input.getRole() == Role.READER) {
-
             User user = new User();
             user.setUsername(input.getUsername());
             user.setEmail(input.getEmail());
             user.setPassword(passwordEncoder.encode(input.getPassword()));
             user.setRole(input.getRole());
 
-            validateUser(user);
-
             return userRepository.save(user);
         } else {
+
             throw new InvalidUserRoleException("Only READER role are allowed for signup.");
         }
     }
@@ -80,13 +78,6 @@ public class AuthenticationService {
         if (input == null || input.getUsername() == null || input.getEmail() == null || input.getPassword() == null || input.getRole() == null) {
 
             throw new IllegalArgumentException("All fields are required for registration.");
-        }
-    }
-
-    private void validateUser(User user) {
-        if (user == null || user.getUsername() == null || user.getEmail() == null || user.getPassword() == null || user.getRole() == null) {
-
-            throw new IllegalStateException("User fields are not properly set.");
         }
     }
 }

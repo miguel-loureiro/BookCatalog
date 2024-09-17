@@ -15,12 +15,12 @@ import static org.mockito.Mockito.when;
 class UserDtoTest {
 
     private UserDto mockUserDto;
-    private Book mockBook1;
-    private Book mockBook2;
+    private BookTitleAndAuthorDto mockBook1Dto;
+    private BookTitleAndAuthorDto mockBook2Dto;
     private UserDto userDto1;
     private UserDto userDto2;
-    private Set<Book> books1;
-    private Set<Book> books2;
+    private Set<BookTitleAndAuthorDto> books1;
+    private Set<BookTitleAndAuthorDto> books2;
 
     @Mock
     private User mockUser;
@@ -34,19 +34,14 @@ class UserDtoTest {
     @BeforeEach
     void setUp() {
 
-        mockBook1 = new Book("Title1", "Author1");
-        mockBook2 = new Book("Title2", "Author2");
+        mockBook1Dto = new BookTitleAndAuthorDto("Title1", "Author1");
+        mockBook2Dto = new BookTitleAndAuthorDto("Title2", "Author2");
 
         mockUserDto = new UserDto();
 
-        mockUser = new User();
-
-        mockBooks = new HashSet<>();
-        mockBooks.add(mockBook);
-
         books1 = new HashSet<>();
         books2 = new HashSet<>();
-        books2.add(mockBook2);
+        books2.add(mockBook2Dto);
 
         userDto1 = new UserDto("username", "email@example.com", Role.ADMIN);
         userDto1.setCoverImage("coverImageUrl.jpg");
@@ -122,9 +117,9 @@ class UserDtoTest {
     @Test
     void getBooks() {
 
-        Set<Book> mockedBooks = new HashSet<>();
-        mockedBooks.add(mockBook1);
-        mockedBooks.add(mockBook2);
+        Set<BookTitleAndAuthorDto> mockedBooks = new HashSet<>();
+        mockedBooks.add(mockBook1Dto);
+        mockedBooks.add(mockBook2Dto);
 
         mockUserDto.setBooks(mockedBooks);
         assertEquals(mockedBooks, mockUserDto.getBooks());
@@ -161,9 +156,9 @@ class UserDtoTest {
     @Test
     void setBooks() {
 
-        Set<Book> mockedBooks = new HashSet<>();
-        mockedBooks.add(mockBook1);
-        mockedBooks.add(mockBook2);
+        Set<BookTitleAndAuthorDto> mockedBooks = new HashSet<>();
+        mockedBooks.add(mockBook1Dto);
+        mockedBooks.add(mockBook2Dto);
 
         mockUserDto.setBooks(mockedBooks);
         assertEquals(mockedBooks, mockUserDto.getBooks());
@@ -173,11 +168,11 @@ class UserDtoTest {
     public void testEqualsAndHashCode() {
         UserDto userDto1 = new UserDto("testUser", "test@example.com", Role.READER);
         userDto1.setCoverImage("coverImageUrl.jpg");
-        userDto1.setBooks(mockBooks);
+        userDto1.setBooks(books1);
 
         UserDto userDto2 = new UserDto("testUser", "test@example.com", Role.READER);
         userDto2.setCoverImage("coverImageUrl.jpg");
-        userDto2.setBooks(mockBooks);
+        userDto2.setBooks(books2);
 
         UserDto userDto3 = new UserDto("differentUser", "different@example.com", Role.READER);
 

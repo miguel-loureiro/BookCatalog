@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -55,70 +56,22 @@ class AuthenticationControllerTest {
     }
 
     @Test
-    void testRegisterUser_UserRoleReaderSuccess() {
-
-        // Arrange
-        RegisterUserDto registerUserDto = new RegisterUserDto();
-        registerUserDto.setRole(Role.READER);
-        User user = new User();
-        when(authenticationService.signup(any(RegisterUserDto.class))).thenReturn(user);
-
-        // Act
-        ResponseEntity<User> response = authenticationController.registerUser(registerUserDto);
-
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(user, response.getBody());
-
-    }
-
-    @Test
-    void testRegisterUser_UserRoleAdmin_Failure() {
-
-        // Arrange
-        RegisterUserDto registerUserDto = new RegisterUserDto();
-        registerUserDto.setRole(Role.ADMIN);
-
-        // Act
-        InvalidUserRoleException exception = assertThrows(InvalidUserRoleException.class, () -> {
-            authenticationController.registerUser(registerUserDto);
-        });
-
-        // Assert
-        assertEquals("Cannot sign up with role SUPER or ADMIN", exception.getMessage());
-        verify(authenticationService, never()).signup(any(RegisterUserDto.class));
-
-    }
-
-    @Test
-    void testRegisterUser_UserRoleSuper_Failure() {
-
-        // Arrange
-        RegisterUserDto registerUserDto = new RegisterUserDto();
-        registerUserDto.setRole(Role.SUPER);
-
-        // Act
-        InvalidUserRoleException exception = assertThrows(InvalidUserRoleException.class, () -> {
-            authenticationController.registerUser(registerUserDto);
-        });
-
-        // Assert
-        assertEquals("Cannot sign up with role SUPER or ADMIN", exception.getMessage());
-        verify(authenticationService, never()).signup(any(RegisterUserDto.class));
-
-    }
-
-    @Test
-    void testAuthenticate_Success() {
-
+    public void testAuthenticate_Success() {
         // Arrange
         LoginUserDto loginUserDto = new LoginUserDto();
-        User authenticatedUser = new User();
-        String jwtToken = "jwt-token";
-        long expirationTime = 3600L;
+        loginUserDto.setUsername("testuser");
+        loginUserDto.setPassword("password");
 
-        when(authenticationService.authenticate(any(LoginUserDto.class))).thenReturn(authenticatedUser);
-        when(jwtService.generateToken(any(User.class))).thenReturn(jwtToken);
+        User authenticatedUser = new User();
+        authenticatedUser.setUsername("testuser");
+        authenticatedUser.setRole(Role.READER);
+
+        CustomUserDetails customUserDetails = new CustomUserDetails(authenticatedUser);
+        String token = "jwt-token";
+        long expirationTime = 3600000L; // 1 hour
+
+        when(authenticationService.authenticate(loginUserDto)).thenReturn(authenticatedUser);
+        when(jwtService.generateToken(customUserDetails)).thenReturn(token);
         when(jwtService.getExpirationTime()).thenReturn(expirationTime);
 
         // Act
@@ -127,55 +80,110 @@ class AuthenticationControllerTest {
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(jwtToken, response.getBody().getToken());
+        assertEquals(token, response.getBody().getToken());
         assertEquals(expirationTime, response.getBody().getExpiresIn());
+
+        verify(securityContext, times(1)).setAuthentication(any(UsernamePasswordAuthenticationToken.class));
+        verify(jwtService, times(1)).generateToken(customUserDetails);
+        verify(authenticationService, times(1)).authenticate(loginUserDto);
     }
 
     @Test
-    void authenticateGuest_WhenGuestUserExists_ShouldReturnJwtToken() {
+    public void testAuthenticate_GuestUser_Success() {
         // Arrange
+        LoginUserDto loginUserDto = new LoginUserDto();
+        loginUserDto.setUsername("guestuser");
+        loginUserDto.setPassword("guestpassword");
+
         User guestUser = new User();
         guestUser.setUsername("guestuser");
         guestUser.setRole(Role.GUEST);
 
-        when(authenticationService.getGuestUser()).thenReturn(guestUser);
-        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn("fake-jwt-token");
-        when(jwtService.getExpirationTime()).thenReturn(3600L);
+        CustomUserDetails customUserDetails = new CustomUserDetails(guestUser);
+        String token = "jwt-token";
+        long expirationTime = 3600000L; // 1 hour
+
+        when(authenticationService.authenticate(loginUserDto)).thenReturn(guestUser);
+        when(jwtService.generateToken(customUserDetails)).thenReturn(token);
+        when(jwtService.getExpirationTime()).thenReturn(expirationTime);
 
         // Act
-        ResponseEntity<LoginResponse> responseEntity = authenticationController.authenticateGuest();
+        ResponseEntity<LoginResponse> response = authenticationController.authenticate(loginUserDto);
 
         // Assert
-        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(responseEntity.getBody()).isNotNull();
-        assertThat(responseEntity.getBody().getToken()).isEqualTo("fake-jwt-token");
-        assertThat(responseEntity.getBody().getExpiresIn()).isEqualTo(3600L);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(token, response.getBody().getToken());
+        assertEquals(expirationTime, response.getBody().getExpiresIn());
+
+        verify(securityContext, times(1)).setAuthentication(any(UsernamePasswordAuthenticationToken.class));
+        verify(jwtService, times(1)).generateToken(customUserDetails);
+        verify(authenticationService, times(1)).authenticate(loginUserDto);
     }
 
     @Test
-    void authenticateGuest_WhenGuestUserDoesNotExist_ShouldCreateDummyGuestUserAndReturnJwtToken() {
-        // Arrange
-        when(authenticationService.getGuestUser()).thenReturn(null); // No GUEST user in the database
-        when(jwtService.generateToken(any(CustomUserDetails.class))).thenReturn("fake-jwt-token");
-        when(jwtService.getExpirationTime()).thenReturn(3600L);
-
+    public void testAuthenticate_BadRequest_NullLoginDto() {
         // Act
-        ResponseEntity<LoginResponse> responseEntity = authenticationController.authenticateGuest();
+        ResponseEntity<LoginResponse> response = authenticationController.authenticate(null);
 
         // Assert
-        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(responseEntity.getBody()).isNotNull();
-        assertThat(responseEntity.getBody().getToken()).isEqualTo("fake-jwt-token");
-        assertThat(responseEntity.getBody().getExpiresIn()).isEqualTo(3600L);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNull(response.getBody());
 
-        // Verify that a "dummy" GUEST user is used
-        /*
-        verify(jwtService).generateToken(argThat(userDetails ->
-                userDetails.getUsername().equals("guestuser") && userDetails.getAuthorities().stream().anyMatch(
-                        authority -> authority.getAuthority().equals("ROLE_GUEST")
-                )
-        ));
+        verify(jwtService, times(0)).generateToken(any(CustomUserDetails.class));
+        verify(authenticationService, times(0)).authenticate(any(LoginUserDto.class));
+    }
 
-         */
+    @Test
+    public void testAuthenticate_Unauthorized_InvalidCredentials() {
+        // Arrange
+        LoginUserDto loginUserDto = new LoginUserDto();
+        loginUserDto.setUsername("wronguser");
+        loginUserDto.setPassword("wrongpassword");
+
+        when(authenticationService.authenticate(loginUserDto)).thenReturn(null);  // Authentication failed
+
+        // Act
+        ResponseEntity<LoginResponse> response = authenticationController.authenticate(loginUserDto);
+
+        // Assert
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(jwtService, times(0)).generateToken(any(CustomUserDetails.class));
+        verify(authenticationService, times(1)).authenticate(loginUserDto);
+    }
+
+    @Test
+    public void testAuthenticate_Success_WithEmail() {
+        // Arrange
+        LoginUserDto loginUserDto = new LoginUserDto();
+        loginUserDto.setEmail("testuser@example.com");
+        loginUserDto.setPassword("password");
+
+        User authenticatedUser = new User();
+        authenticatedUser.setEmail("testuser@example.com");
+        authenticatedUser.setRole(Role.READER);
+
+        CustomUserDetails customUserDetails = new CustomUserDetails(authenticatedUser);
+        String token = "jwt-token";
+        long expirationTime = 3600000L; // 1 hour
+
+        when(authenticationService.authenticate(loginUserDto)).thenReturn(authenticatedUser);
+        when(jwtService.generateToken(customUserDetails)).thenReturn(token);
+        when(jwtService.getExpirationTime()).thenReturn(expirationTime);
+
+        // Act
+        ResponseEntity<LoginResponse> response = authenticationController.authenticate(loginUserDto);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(token, response.getBody().getToken());
+        assertEquals(expirationTime, response.getBody().getExpiresIn());
+
+        verify(securityContext, times(1)).setAuthentication(any(UsernamePasswordAuthenticationToken.class));
+        verify(jwtService, times(1)).generateToken(customUserDetails);
+        verify(authenticationService, times(1)).authenticate(loginUserDto);
     }
 }

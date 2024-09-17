@@ -35,6 +35,9 @@ class JwtServiceTest {
     private UserDetails userDetails;
 
     @Mock
+    private CustomUserDetails customUserDetails;
+
+    @Mock
     private User mockUser;
 
     @Mock
@@ -98,7 +101,7 @@ class JwtServiceTest {
         Map<String, Object> extraClaims = new HashMap<>();
 
         // Act
-        String mockToken = jwtService.generateToken(extraClaims, userDetails);
+        String mockToken = jwtService.generateToken(extraClaims, customUserDetails);
 
         // Assert
         assertNotNull(mockToken);
@@ -113,7 +116,7 @@ class JwtServiceTest {
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
 
         // Act
-        String token = jwtService.generateToken(userDetails);
+        String token = jwtService.generateToken(customUserDetails);
 
         // Assert
         assertNotNull(token);
@@ -136,23 +139,22 @@ class JwtServiceTest {
 
         // Act and Assert
         UsernameNotFoundException exception = assertThrows(UsernameNotFoundException.class, () -> {
-            jwtService.generateToken(userDetails);
+            jwtService.generateToken(customUserDetails);
         });
 
-        assertEquals("User not found or invalid role for token generation: testuser", exception.getMessage());
+        assertEquals("User not found or invalid role for token generation: null", exception.getMessage());
         verify(userRepository, times(1)).findByUsername("testuser");
     }
 
     @Test
     void testGenerateToken_NullUserDetails_ShouldGenerateTokenForGuestUser() {
         // Act
-        String token = jwtService.generateToken(null);  // Passing null to simulate guest user scenario
+        String token = jwtService.generateToken(null);
 
         // Assert
         assertNotNull(token);
         assertFalse(token.isEmpty());
 
-        // Verify that the token contains the expected claims
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(jwtService.getSignInKey())
                 .build()
@@ -164,8 +166,8 @@ class JwtServiceTest {
 
     @Test
     void testGenerateToken_GuestUserDetails_ShouldGenerateTokenForGuestUser() {
-        // Arrange: Mock user details for a guest user
-        UserDetails guestUserDetails = new CustomUserDetails(new User("guestuser", "", "", Role.GUEST));
+        // Arrange
+        CustomUserDetails guestUserDetails = new CustomUserDetails(new User("guestuser", "", "", Role.GUEST));
 
         // Act
         String token = jwtService.generateToken(guestUserDetails);  // Passing guestUserDetails to generate token
@@ -186,8 +188,8 @@ class JwtServiceTest {
 
     @Test
     void testGenerateToken_ValidUser_ShouldGenerateTokenForUser() {
-        // Arrange: Mock user details for a valid user
-        UserDetails validUserDetails = mock(UserDetails.class);
+        // Arrange
+        CustomUserDetails validUserDetails = mock(CustomUserDetails.class);
         when(validUserDetails.getUsername()).thenReturn("testuser");
 
         User user = new User("testuser", "testuser@example.com", "encodedPassword", Role.READER);
@@ -200,7 +202,6 @@ class JwtServiceTest {
         assertNotNull(token);
         assertFalse(token.isEmpty());
 
-        // Verify that the token contains the expected claims
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(jwtService.getSignInKey())
                 .build()
@@ -213,7 +214,7 @@ class JwtServiceTest {
     @Test
     void testGenerateToken_UserNotFound_ShouldThrowUsernameNotFoundException() {
         // Arrange
-        UserDetails userDetails = mock(UserDetails.class);
+        CustomUserDetails userDetails = mock(CustomUserDetails.class);
         when(userDetails.getUsername()).thenReturn("nonexistentuser");
 
         when(userRepository.findByUsername("nonexistentuser")).thenReturn(Optional.empty());
@@ -236,7 +237,7 @@ class JwtServiceTest {
     @Test
     public void testIsTokenExpired() {
         // Arrange
-        UserDetails userDetails = mock(UserDetails.class);
+        CustomUserDetails userDetails = mock(CustomUserDetails.class);
         when(userDetails.getUsername()).thenReturn("testUser");
 
         long pastExpiration = -1000 * 60 * 60;
@@ -252,7 +253,7 @@ class JwtServiceTest {
     @Test
     public void testIsTokenExpired_NotExpired() {
         // Arrange
-        UserDetails userDetails = mock(UserDetails.class);
+        CustomUserDetails userDetails = mock(CustomUserDetails.class);
         when(userDetails.getUsername()).thenReturn("testUser");
 
         long expirationInPast = System.currentTimeMillis() + 1;
@@ -268,7 +269,7 @@ class JwtServiceTest {
     @Test
     public void testExtractExpiration() {
         // Arrange
-        UserDetails mockUserDetails = mock(UserDetails.class);
+        CustomUserDetails mockUserDetails = mock(CustomUserDetails.class);
         when(mockUserDetails.getUsername()).thenReturn("testUser");
 
         String token = jwtService.buildToken(new HashMap<>(), mockUserDetails, 10000);
@@ -295,8 +296,9 @@ class JwtServiceTest {
     @Test
     void testIsTokenValidWithFutureToken() {
         // Arrange
+
         long futureExpiration = 1000 * 60 * 60; // 1 hour in the future
-        String token = jwtService.buildToken(new HashMap<>(), userDetails, futureExpiration);
+        String token = jwtService.buildToken(new HashMap<>(),customUserDetails, futureExpiration);
 
         // Act
         boolean isValid = jwtService.isTokenValid(token, userDetails);

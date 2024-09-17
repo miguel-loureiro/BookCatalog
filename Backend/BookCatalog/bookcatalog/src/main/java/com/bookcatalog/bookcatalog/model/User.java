@@ -43,7 +43,11 @@ public class User implements UserDetails {
     @Getter
     private String coverImage;
 
-    @ManyToMany
+    @Version
+    @Getter
+    private Long version;
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name="user_books", joinColumns = @JoinColumn(name= "user_id"), inverseJoinColumns = @JoinColumn(name= "book_id"))
     private Set<Book> books = new HashSet<>();
 

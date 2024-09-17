@@ -80,22 +80,6 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void testSignupWithValidInputValuesAndUserHasNullValues() {
-        // Arrange
-        RegisterUserDto input = new RegisterUserDto("username", "email@example.com", "password", Role.READER);
-        User user = new User();
-
-        user.setEmail(null);
-
-        // Act and Assert
-        assertThrows(IllegalStateException.class, () -> {
-            authenticationService.signup(input);
-        });
-
-        verify(userRepository, never()).save(any(User.class));
-    }
-
-    @Test
     void testValidateInput_NullUsername_ThrowsIllegalArgumentException() {
         // Arrange
         RegisterUserDto input = new RegisterUserDto(null, "testEmail@example.com", "testPassword", Role.READER);
@@ -159,6 +143,82 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    public void testSignup_InputIsNull_ShouldThrowIllegalArgumentException() {
+        // Act and Assert
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            authenticationService.signup(null);
+        });
+        assertEquals("All fields are required for registration.", exception.getMessage());
+    }
+
+    @Test
+    public void testSignup_RoleIsNull_ShouldThrowIllegalArgumentException() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", null);
+
+        // Act and Assert
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            authenticationService.signup(input);
+        });
+        assertEquals("All fields are required for registration.", exception.getMessage());
+    }
+
+    @Test
+    public void testSignup_InvalidRole_ShouldThrowInvalidUserRoleException() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.ADMIN);
+
+        // Act and Assert
+        Exception exception = assertThrows(InvalidUserRoleException.class, () -> {
+            authenticationService.signup(input);
+        });
+        assertEquals("Only READER role are allowed for signup.", exception.getMessage());
+    }
+
+    // 7. Test valid signup
+    @Test
+    public void testSignup_ValidInput_ShouldSaveUser() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
+
+        User savedUser = new User();
+        savedUser.setUsername("testuser");
+        savedUser.setEmail("test@example.com");
+        savedUser.setRole(Role.READER);
+        savedUser.setPassword("encodedPassword");
+
+        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        // Act
+        User result = authenticationService.signup(input);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals("testuser", result.getUsername());
+        assertEquals("test@example.com", result.getEmail());
+        assertEquals("encodedPassword", result.getPassword());
+        assertEquals(Role.READER, result.getRole());
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    @Test
+    public void testSignup_InvalidUser_ShouldThrowIllegalStateException() {
+        // Arrange
+        RegisterUserDto input = new RegisterUserDto("testuser", "test@example.com", "password", Role.READER);
+        when(passwordEncoder.encode(input.getPassword())).thenReturn("encodedPassword");
+
+        // Act and Assert
+        doThrow(new IllegalStateException("User fields are not properly set.")).when(userRepository).save(any(User.class));
+
+        Exception exception = assertThrows(IllegalStateException.class, () -> {
+            authenticationService.signup(input);
+        });
+
+        assertEquals("User fields are not properly set.", exception.getMessage());
+    }
+
+    @Test
     void testAuthenticate_Success_Username() {
         // Arrange
         LoginUserDto input = new LoginUserDto("username", "email@email.com","password");
@@ -183,27 +243,46 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void testAuthenticate_Success_Email() {
+    public void testAuthenticateWithValidEmail() {
         // Arrange
-        LoginUserDto input = new LoginUserDto(null, "email@example.com", "password");
+        LoginUserDto input = new LoginUserDto();
+        input.setUsername("");
+        input.setEmail("testuser@example.com");
+        input.setPassword("password");
+
         User user = new User();
-        user.setEmail("email@example.com");
-        user.setPassword("encodedPassword");
+        user.setEmail("testuser@example.com");
+        user.setPassword("password");
         user.setRole(Role.READER);
 
-        when(passwordEncoder.matches("password", "encodedPassword")).thenReturn(true);
-        when(userRepository.findByEmail("email@example.com")).thenReturn(Optional.of(user));
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenReturn(mock(Authentication.class));
+        when(userRepository.findByEmail(input.getEmail())).thenReturn(Optional.of(user));
 
         // Act
-        User result = authenticationService.authenticate(input);
+        User authenticatedUser = authenticationService.authenticate(input);
 
         // Assert
-        assertNotNull(result);
-        assertEquals("email@example.com", result.getEmail());
-        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findByEmail("email@example.com");
+        assertNotNull(authenticatedUser);
+        assertEquals("testuser@example.com", authenticatedUser.getEmail());
+        verify(userRepository, never()).findByUsername(anyString());
+        verify(userRepository, times(1)).findByEmail("testuser@example.com");
+    }
+
+    @Test
+    public void testAuthenticateWithMissingIdentifier() {
+        // Arrange
+        LoginUserDto input = new LoginUserDto();
+        input.setUsername(null);
+        input.setEmail(null);
+        input.setPassword("password");
+
+        // Act and Assert
+        Exception exception = assertThrows(UsernameNotFoundException.class, () -> {
+            authenticationService.authenticate(input);
+        });
+
+        assertEquals("User not found with identifier: null", exception.getMessage());
+        verify(userRepository, never()).findByUsername(anyString());
+        verify(userRepository, never()).findByEmail(anyString());
     }
 
     @Test

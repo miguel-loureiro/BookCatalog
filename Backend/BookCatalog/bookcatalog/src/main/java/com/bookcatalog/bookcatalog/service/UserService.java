@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -59,13 +60,19 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
 
     public ResponseEntity<UserDto> createUser(RegisterUserDto input) {
 
-        Optional<User> currentUserOpt = getCurrentUser();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (currentUserOpt.isEmpty()) {
+        if (authentication == null || authentication.getPrincipal() == "anonymousUser") {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
 
-        User currentUser = currentUserOpt.get();
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
+
+        CustomUserDetails currentUserDetails = (CustomUserDetails) principal;
+        User currentUser = currentUserDetails.getUser();
         Role newUserRole = input.getRole();
 
         User targetUser = new User();
@@ -124,6 +131,12 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
 
     public ResponseEntity<UserDto> updateUser(String identifier, String type, UserDto input) throws IOException {
 
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getPrincipal() == "anonymousUser") {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
+
         Optional<User> currentUserOpt = getCurrentUser();
         if (currentUserOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -132,22 +145,12 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
 
         Optional<User> userToUpdateOpt = getUserByIdentifier(identifier, type);
         if (userToUpdateOpt.isEmpty()) {
-
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
         User userToUpdate = userToUpdateOpt.get();
 
         if (!hasPermissionToUpdateUser(currentUser, userToUpdate)) {
-
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        if (userToUpdate.getRole() == Role.ADMIN) {
-            boolean canUpdateAdmin = currentUser.getRole() == Role.SUPER ||
-                    (currentUser.getRole() == Role.ADMIN && currentUser.getUsername().equals(userToUpdate.getUsername()));
-            if (!canUpdateAdmin) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
         }
 
         userToUpdate.setUsername(input.getUsername());
@@ -164,13 +167,18 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         }
 
         User updatedUser = userRepository.save(userToUpdate);
-
         UserDto updatedUserDto = new UserDto(updatedUser);
 
         return ResponseEntity.ok(updatedUserDto);
     }
 
     public ResponseEntity<Void> changeUserPassword(String username, String newPassword) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getPrincipal() == "anonymousUser") {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
 
         Optional<User> currentUserOpt = getCurrentUser();
 

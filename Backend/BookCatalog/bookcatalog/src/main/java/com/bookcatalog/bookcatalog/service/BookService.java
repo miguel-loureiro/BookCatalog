@@ -9,9 +9,9 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.BookDetailWithoutUserListDto;
 import com.bookcatalog.bookcatalog.model.dto.BookDto;
-import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.OptimisticLockException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
@@ -25,6 +25,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class BookService {
+
+    private static final int MAX_RETRY_ATTEMPTS = 3;
 
     @Autowired
     private final BookRepository bookRepository;
@@ -66,6 +68,7 @@ public class BookService {
             Book savedBook = bookRepository.save(book);
             return ResponseEntity.ok(savedBook);
         } catch (Exception e) {
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
@@ -108,13 +111,6 @@ public class BookService {
                 throw new IllegalArgumentException("Invalid identifier type: " + type);
         }
         return book;
-    }
-
-    // TODO: remove this method.
-    public Page<Book> getBooksByAuthor(String author, int page, int size) {
-
-        Pageable pageable = PageRequest.of(page, size);
-        return bookRepository.findBooksByAuthor(author, pageable);
     }
 
     public ResponseEntity<Page<BookDto>> getAllBooks(
@@ -161,6 +157,7 @@ public class BookService {
         }
 
         User currentUser = currentUserOpt.get();
+
         if (!hasPermissionToViewBooksOnly(currentUser)) {
 
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -224,22 +221,25 @@ public class BookService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Book existingBook = getBookByIdentifier(identifier, type);
-        if (existingBook == null) {
+        try {
+
+            Book existingBook = getBookByIdentifier(identifier, type);
+
+            newBookDetails.setId(existingBook.getId());
+
+            bookRepository.save(newBookDetails);
+
+            return ResponseEntity.ok(newBookDetails);
+        } catch (BookNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-
-        newBookDetails.setId(existingBook.getId());
-
-        bookRepository.save(newBookDetails);
-
-        return ResponseEntity.ok(newBookDetails);
     }
 
     public ResponseEntity<Void> deleteBook(String identifier, String type) {
 
         Optional<User> currentUserOpt = userService.getCurrentUser();
         if (currentUserOpt.isEmpty()) {
+
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -249,12 +249,15 @@ public class BookService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Optional<Book> bookToDeleteOpt = Optional.of(getBookByIdentifier(identifier, type));
+        try {
 
-        Book bookToDelete = bookToDeleteOpt.get();
-        bookRepository.delete(bookToDelete);
+            Book bookToDelete = getBookByIdentifier(identifier, type);
+            bookRepository.delete(bookToDelete);
+            return ResponseEntity.ok().build();
+        } catch (BookNotFoundException e) {
 
-        return ResponseEntity.ok().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 
     public void saveAll(List<Book> books) {
@@ -264,12 +267,51 @@ public class BookService {
 
     @Transactional
     public ResponseEntity<Object> addBookToCurrentUser(String identifier, String type) {
-        return modifyBookCollectionForCurrentUser(identifier, type, true);
-    }
+
+        int attempts = 0;
+
+            while (attempts < MAX_RETRY_ATTEMPTS) {
+                try {
+                    return modifyBookCollectionForCurrentUser(identifier, type, true);
+                } catch (OptimisticLockException e) {
+                    attempts++;
+                    if (attempts >= MAX_RETRY_ATTEMPTS) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body("Conflict occurred while updating user. Please try again.");
+                    }
+                } catch (ConcurrentModificationException e) {
+
+                    attempts++;
+                    if (attempts >= MAX_RETRY_ATTEMPTS) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body("Concurrent modification detected. Please try again.");
+                    }
+                }
+            }
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("An unexpected error occurred.");
+        }
 
     @Transactional
     public ResponseEntity<Object> deleteBookFromCurrentUser(String identifier, String type) {
-        return modifyBookCollectionForCurrentUser(identifier, type, false);
+
+        int attempts = 0;
+
+        while (attempts < MAX_RETRY_ATTEMPTS) {
+            try {
+                return modifyBookCollectionForCurrentUser(identifier, type, false);
+            } catch (OptimisticLockException e) {
+                attempts++;
+                if (attempts >= MAX_RETRY_ATTEMPTS) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body("Conflict occurred while deleting the book from user. Please try again.");
+                }
+            }
+        }
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("An unexpected error occurred.");
     }
 
     private ResponseEntity<Object> modifyBookCollectionForCurrentUser(String identifier, String type, boolean isAdding) {
@@ -284,7 +326,7 @@ public class BookService {
             Book book;
 
             try {
-                book = getBookByIdentifier(identifier, type);
+                book = getBookByIdentifier(identifier, type);  // Ensure book is found
             } catch (BookNotFoundException e) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(e.getMessage());
@@ -292,22 +334,25 @@ public class BookService {
 
             boolean modificationSuccess;
             if (isAdding) {
-
                 modificationSuccess = currentUser.getBooks().add(book);
             } else {
+                // Check the result of removing the book carefully
                 modificationSuccess = currentUser.getBooks().remove(book);
+                if (!modificationSuccess) {
+                    // Add logging or debugging to check why removal failed
+                    System.out.println("Book not found in the user's collection for removal.");
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body("Book not found in user's collection");
+                }
             }
 
-            if (!modificationSuccess) {
-
-                return ResponseEntity.status(isAdding ? HttpStatus.CONFLICT : HttpStatus.NOT_FOUND)
-                        .body(isAdding ? "Book already in user's collection" : "Book not found in user's collection");
-            }
-
-            userRepository.save(currentUser);
+            userRepository.save(currentUser);  // This is where OptimisticLockException could be thrown
             return ResponseEntity.ok().build();
+        } catch (OptimisticLockException e) {
+            // Ensure OptimisticLockException is propagated
+            throw e;
         } catch (Exception e) {
-
+            // Catch-all for other exceptions
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An unexpected error occurred: " + e.getMessage());
         }
@@ -334,20 +379,9 @@ public class BookService {
         return new PageImpl<>(subList, paging, books.size());
     }
 
-    private void updateBookDetails(Book bookToUpdate, Book newBookDetails, MultipartFile file) throws IOException {
-
-        bookToUpdate.setTitle(newBookDetails.getTitle());
-        bookToUpdate.setAuthor(newBookDetails.getAuthor());
-        bookToUpdate.setPrice(newBookDetails.getPrice());
-        bookToUpdate.setIsbn(newBookDetails.getIsbn());
-        bookToUpdate.setPublishDate(newBookDetails.getPublishDate());
-        bookToUpdate.setCoverImageUrl(newBookDetails.getCoverImageUrl());
-        }
-
     private boolean hasPermissionToViewCompleteBooksWithUsers(User currentUser) {
 
-        return currentUser.getRole() == Role.SUPER ||
-                currentUser.getRole() == Role.ADMIN;
+        return currentUser.getRole() == Role.SUPER || currentUser.getRole() == Role.ADMIN;
     }
 
     private boolean hasPermissionToViewBooksOnly(User currentUser) {

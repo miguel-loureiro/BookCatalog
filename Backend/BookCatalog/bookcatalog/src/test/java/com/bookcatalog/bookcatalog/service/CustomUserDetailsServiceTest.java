@@ -1,5 +1,7 @@
 package com.bookcatalog.bookcatalog.service;
 
+import com.bookcatalog.bookcatalog.model.CustomUserDetails;
+import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,36 +34,50 @@ class CustomUserDetailsServiceTest {
     }
 
     @Test
-    void loadUserByUsername_userFoundByUsername() {
-        // Arrange
-        String username = "testUser";
-        User mockUser = new User();
-        mockUser.setUsername(username);
-        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
-
+    public void testLoadUserByUsername_GuestUser() {
         // Act
-        UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername("guestuser");
 
         // Assert
         assertNotNull(userDetails);
-        assertEquals(username, userDetails.getUsername());
-        verify(userRepository, times(1)).findByUsername(username);
-        verify(userRepository, never()).findByEmail(anyString());
+        assertEquals("guestuser", userDetails.getUsername());
+        assertInstanceOf(CustomUserDetails.class, userDetails);
+        CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
+        assertEquals(Role.GUEST, customUserDetails.getUser().getRole());
     }
 
     @Test
-    void loadUserByUsername_userNotFound() {
+    public void testLoadUserByUsername_ValidUser() {
         // Arrange
-        String identifier = "unknownUser";
-        when(userRepository.findByUsername(identifier)).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(identifier)).thenReturn(Optional.empty());
+        User user = new User();
+        user.setUsername("testuser");
+        user.setRole(Role.ADMIN);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
 
-        // Act and Assert
-        UsernameNotFoundException exception = assertThrows(UsernameNotFoundException.class,
-                () -> customUserDetailsService.loadUserByUsername(identifier));
+        // Act
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername("testuser");
 
-        assertEquals("User not found with username : " + identifier, exception.getMessage());
-        verify(userRepository, times(1)).findByUsername(identifier);
+        // Assert
+        assertNotNull(userDetails);
+        assertEquals("testuser", userDetails.getUsername());
+        assertInstanceOf(CustomUserDetails.class, userDetails);
+        CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
+        assertEquals(Role.ADMIN, customUserDetails.getUser().getRole());
+        verify(userRepository).findByUsername("testuser");
+    }
 
+    @Test
+    public void testLoadUserByUsername_UserNotFound() {
+        // Arrange
+        when(userRepository.findByUsername("nonexistentuser")).thenReturn(Optional.empty());
+
+        // Act & Assert
+        UsernameNotFoundException exception = assertThrows(
+                UsernameNotFoundException.class,
+                () -> customUserDetailsService.loadUserByUsername("nonexistentuser")
+        );
+
+        assertEquals("User not found with username : nonexistentuser", exception.getMessage());
+        verify(userRepository).findByUsername("nonexistentuser");
     }
 }

@@ -2,6 +2,7 @@ package com.bookcatalog.bookcatalog.model;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import com.bookcatalog.bookcatalog.helpers.DateHelper;
@@ -43,12 +44,28 @@ public class Book {
     @Getter
     private String coverImageUrl;
 
+    @Version
+    private Long version;
+
     @Getter
     @ManyToMany(mappedBy = "books")
     private Set<User> users = new HashSet<>();
 
     public Book() {
 
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Book book = (Book) o;
+        return Objects.equals(id, book.id) && Objects.equals(title, book.title) && Objects.equals(author, book.author) && Objects.equals(isbn, book.isbn) && Objects.equals(price, book.price) && Objects.equals(publishDate, book.publishDate) && Objects.equals(coverImageUrl, book.coverImageUrl) && Objects.equals(version, book.version) && Objects.equals(users, book.users);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, title, author, isbn, price, publishDate, coverImageUrl, version, users);
     }
 
     public Book(String title, String author, String isbn, String price, Date publishDate, String coverImageUrl, Set<User> users) {
