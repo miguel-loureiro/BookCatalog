@@ -45,6 +45,8 @@ public class Book {
     private String coverImageUrl;
 
     @Version
+    @Getter
+    @Setter
     private Long version;
 
     @Getter
@@ -60,12 +62,12 @@ public class Book {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Book book = (Book) o;
-        return Objects.equals(id, book.id) && Objects.equals(title, book.title) && Objects.equals(author, book.author) && Objects.equals(isbn, book.isbn) && Objects.equals(price, book.price) && Objects.equals(publishDate, book.publishDate) && Objects.equals(coverImageUrl, book.coverImageUrl) && Objects.equals(version, book.version) && Objects.equals(users, book.users);
+        return Objects.equals(id, book.id) || Objects.equals(title, book.title) || Objects.equals(isbn, book.isbn) ;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, title, author, isbn, price, publishDate, coverImageUrl, version, users);
+        return Objects.hash(id, title, isbn);
     }
 
     public Book(String title, String author, String isbn, String price, Date publishDate, String coverImageUrl, Set<User> users) {

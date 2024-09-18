@@ -1,8 +1,5 @@
 package com.bookcatalog.bookcatalog.model;
 
-import static org.junit.Assert.*;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -15,6 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.bookcatalog.bookcatalog.helpers.DateHelper;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class BookTest {
 
@@ -36,23 +35,24 @@ public class BookTest {
     public void testDefaultConstructor() {
 
         Book emptyBook = new Book();
+
         assertNotNull(emptyBook );
-        Assertions.assertNull(emptyBook.getTitle());
-        Assertions.assertNull(emptyBook.getAuthor());
-        Assertions.assertNull(emptyBook.getPrice());
-        Assertions.assertNull(emptyBook.getPublishDate());
-        Assertions.assertNull(emptyBook.getCoverImageUrl());
+        assertNull(emptyBook.getTitle());
+        assertNull(emptyBook.getAuthor());
+        assertNull(emptyBook.getPrice());
+        assertNull(emptyBook.getPublishDate());
+        assertNull(emptyBook.getCoverImageUrl());
     }
 
     @Test
     public void testParameterizedConstructor() throws ParseException {
 
-        Assertions.assertEquals("Title", book.getTitle());
-        Assertions.assertEquals("Author", book.getAuthor());
-        Assertions.assertEquals("9781234567890", book.getIsbn());
-        Assertions.assertEquals("19.99", book.getPrice());
-        Assertions.assertEquals("cover.jpg", book.getCoverImageUrl());
-        Assertions.assertEquals(users, book.getUsers());
+        assertEquals("Title", book.getTitle());
+        assertEquals("Author", book.getAuthor());
+        assertEquals("9781234567890", book.getIsbn());
+        assertEquals("19.99", book.getPrice());
+        assertEquals("cover.jpg", book.getCoverImageUrl());
+        assertEquals(users, book.getUsers());
     }
 
     @Test
@@ -66,13 +66,13 @@ public class BookTest {
         book.setPrice("29.99");
         book.setCoverImageUrl("newcover.jpg");
 
-        Assertions.assertNotNull(book.getId());
-        Assertions.assertEquals(book.getId(),2);
-        Assertions.assertEquals("New Title", book.getTitle());
-        Assertions.assertEquals("New Author", book.getAuthor());
-        Assertions.assertEquals("9789876543210", book.getIsbn());
-        Assertions.assertEquals("29.99", book.getPrice());
-        Assertions.assertEquals("newcover.jpg", book.getCoverImageUrl());
+        assertNotNull(book.getId());
+        assertEquals(book.getId(),2);
+        assertEquals("New Title", book.getTitle());
+        assertEquals("New Author", book.getAuthor());
+        assertEquals("9789876543210", book.getIsbn());
+        assertEquals("29.99", book.getPrice());
+        assertEquals("newcover.jpg", book.getCoverImageUrl());
     }
 
     @Test
@@ -81,7 +81,7 @@ public class BookTest {
         book.setPublishDate("06/2021");
 
         assertNotNull(book.getPublishDate());
-        Assertions.assertEquals("06/2021", book.getPublishDate());
+        assertEquals("06/2021", book.getPublishDate());
     }
 
     @Test
@@ -106,6 +106,64 @@ public class BookTest {
         Book book = new Book();
         String invalidDate = "invalid date";
         IOException exception = assertThrows(IOException.class, () -> book.setPublishDate(invalidDate));
-        Assertions.assertEquals("Error parsing date", exception.getMessage());
+        assertEquals("Error parsing date", exception.getMessage());
+    }
+
+    @Test
+    public void testEquals_SameObject() {
+        // Arrange
+        Book book = new Book("Title 1", "Author 1", "1234567890", "10.00", new Date(), "url1");
+
+        // Act and Assert
+        assertEquals(book, book, "A book should be equal to itself");
+    }
+
+    @Test
+    public void testEquals_SameId() {
+        // Arrange
+        Book book1 = new Book(1, "Title 1", "Author 1");
+        Book book2 = new Book(1, "Title 2", "Author 2");
+
+        // Act and Assert
+        assertEquals(book1, book2, "Books with the same id should be equal");
+    }
+
+    @Test
+    public void testEquals_SameTitle() {
+        // Arrange
+        Book book1 = new Book("Title 1", "Author 1", "1234567890", "10.00", new Date(), "url1");
+        Book book2 = new Book("Title 1", "Author 2", "0987654321", "15.00", new Date(), "url2");
+
+        // Act and Assert
+        assertEquals(book1, book2, "Books with the same title should be equal");
+    }
+
+    @Test
+    public void testEquals_SameIsbn() {
+        // Arrange
+        Book book1 = new Book("Title 1", "Author 1", "1234567890", "10.00", new Date(), "url1");
+        Book book2 = new Book("Title 2", "Author 2", "1234567890", "15.00", new Date(), "url2");
+
+        // Act and Assert
+        assertEquals(book1, book2, "Books with the same ISBN should be equal");
+    }
+
+    @Test
+    public void testNotEquals_DifferentClass() {
+        // Arrange
+        Book book = new Book("Title 1", "Author 1", "1234567890", "10.00", new Date(), "url1");
+        String nonBookObject = "Not a Book";
+
+        // Act and Assert
+        assertNotEquals(String.valueOf(book), nonBookObject, "A book should not be equal to an object of a different class");
+    }
+
+    @Test
+    public void testNotEquals_NullObject() {
+        // Arrange
+        Book book = new Book("Title 1", "Author 1", "1234567890", "10.00", new Date(), "url1");
+
+        // Act and Assert
+        assertNotEquals(String.valueOf(book), null, "A book should not be equal to null");
     }
 }

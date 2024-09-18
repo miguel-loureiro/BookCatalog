@@ -12,7 +12,10 @@ import com.bookcatalog.bookcatalog.model.dto.BookDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -268,93 +271,96 @@ public class BookService {
     @Transactional
     public ResponseEntity<Object> addBookToCurrentUser(String identifier, String type) {
 
-        int attempts = 0;
+        try {
 
-            while (attempts < MAX_RETRY_ATTEMPTS) {
-                try {
-                    return modifyBookCollectionForCurrentUser(identifier, type, true);
-                } catch (OptimisticLockException e) {
-                    attempts++;
-                    if (attempts >= MAX_RETRY_ATTEMPTS) {
-                        return ResponseEntity.status(HttpStatus.CONFLICT)
-                                .body("Conflict occurred while updating user. Please try again.");
-                    }
-                } catch (ConcurrentModificationException e) {
+            Optional<User> currentUserOpt = userService.getCurrentUser();
+            if (currentUserOpt.isEmpty()) {
 
-                    attempts++;
-                    if (attempts >= MAX_RETRY_ATTEMPTS) {
-                        return ResponseEntity.status(HttpStatus.CONFLICT)
-                                .body("Concurrent modification detected. Please try again.");
-                    }
-                }
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("An unexpected error occurred.");
+            User currentUser = currentUserOpt.get();
+
+            Book bookToAdd = getBookByIdentifier(identifier, type);
+
+            Set<Book> userBooks = currentUser.getBooks();
+
+            if (userBooks.contains(bookToAdd)) {
+
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body("Book already exists in user's collection");
+            }
+
+            Long initialUserVersion = currentUser.getVersion();
+            Long initialBookVersion = bookToAdd.getVersion();
+
+            userBooks.add(bookToAdd);
+            currentUser.setBooks(userBooks);
+
+            userRepository.save(currentUser);
+
+            if (!Objects.equals(initialUserVersion, currentUser.getVersion()) ||
+                    !Objects.equals(initialBookVersion, bookToAdd.getVersion())) {
+
+                throw new OptimisticLockingFailureException("Failed due to concurrent modification.");
+            }
+
+            return ResponseEntity.ok("Book successfully added to user's collection");
+
+        } catch (BookNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+
+        } catch (OptimisticLockingFailureException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Conflict occurred due to concurrent modification.");
+
+        } catch (Exception e) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An unexpected error occurred: " + e.getMessage());
         }
+    }
 
     @Transactional
     public ResponseEntity<Object> deleteBookFromCurrentUser(String identifier, String type) {
 
-        int attempts = 0;
-
-        while (attempts < MAX_RETRY_ATTEMPTS) {
-            try {
-                return modifyBookCollectionForCurrentUser(identifier, type, false);
-            } catch (OptimisticLockException e) {
-                attempts++;
-                if (attempts >= MAX_RETRY_ATTEMPTS) {
-                    return ResponseEntity.status(HttpStatus.CONFLICT)
-                            .body("Conflict occurred while deleting the book from user. Please try again.");
-                }
-            }
-        }
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("An unexpected error occurred.");
-    }
-
-    private ResponseEntity<Object> modifyBookCollectionForCurrentUser(String identifier, String type, boolean isAdding) {
         try {
+
             Optional<User> currentUserOpt = userService.getCurrentUser();
             if (currentUserOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Current user not found");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
             User currentUser = currentUserOpt.get();
-            Book book;
 
-            try {
-                book = getBookByIdentifier(identifier, type);  // Ensure book is found
-            } catch (BookNotFoundException e) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(e.getMessage());
+            Book bookToDelete = getBookByIdentifier(identifier, type);
+
+            Set<Book> userBooks = currentUser.getBooks();
+            if (!userBooks.contains(bookToDelete)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 
-            boolean modificationSuccess;
-            if (isAdding) {
-                modificationSuccess = currentUser.getBooks().add(book);
-            } else {
-                // Check the result of removing the book carefully
-                modificationSuccess = currentUser.getBooks().remove(book);
-                if (!modificationSuccess) {
-                    // Add logging or debugging to check why removal failed
-                    System.out.println("Book not found in the user's collection for removal.");
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body("Book not found in user's collection");
-                }
+            Long initialUserVersion = currentUser.getVersion();
+            Long initialBookVersion = bookToDelete.getVersion();
+
+            userBooks.remove(bookToDelete);
+            currentUser.setBooks(userBooks);
+
+            userRepository.save(currentUser);
+
+            if (!Objects.equals(initialUserVersion, currentUser.getVersion()) ||
+                    !Objects.equals(initialBookVersion, bookToDelete.getVersion())) {
+
+                throw new OptimisticLockingFailureException("Failed due to concurrent modification.");
             }
 
-            userRepository.save(currentUser);  // This is where OptimisticLockException could be thrown
             return ResponseEntity.ok().build();
-        } catch (OptimisticLockException e) {
-            // Ensure OptimisticLockException is propagated
-            throw e;
+
+        } catch (BookNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (OptimisticLockingFailureException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
         } catch (Exception e) {
-            // Catch-all for other exceptions
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("An unexpected error occurred: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
@@ -368,7 +374,6 @@ public class BookService {
 
         int start = (int) paging.getOffset();
         int end = Math.min((start + paging.getPageSize()), books.size());
-
 
         if (start > books.size()) {
 

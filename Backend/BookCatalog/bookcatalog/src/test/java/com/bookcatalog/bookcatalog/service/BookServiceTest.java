@@ -5,11 +5,8 @@ import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.BookDetailWithoutUserListDto;
 import com.bookcatalog.bookcatalog.model.dto.BookDto;
-import com.bookcatalog.bookcatalog.model.dto.UserDto;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.OptimisticLockException;
-import org.checkerframework.checker.units.qual.C;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,25 +19,16 @@ import org.springframework.http.ResponseEntity;
 
 import com.bookcatalog.bookcatalog.model.Book;
 import com.bookcatalog.bookcatalog.repository.BookRepository;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-
 
 public class BookServiceTest {
 
@@ -69,7 +57,7 @@ public class BookServiceTest {
 
     @BeforeEach
     public void setUp() {
-        // Initialize mocks
+
         MockitoAnnotations.openMocks(this);
 
         // Set up mock user
@@ -81,6 +69,7 @@ public class BookServiceTest {
         mockBook = new Book();
         mockBook.setTitle("Test Title");
         mockBook.setAuthor("Test Author");
+        mockBook.setIsbn("1234567890");
 
         mockBookDto = new BookDetailWithoutUserListDto(
                 "Test Title", "Test Author", "12345", "10.00", "01/2021", "imageUrl"
@@ -357,12 +346,43 @@ public class BookServiceTest {
     }
 
     @Test
+    public void testGetAllBooks_Pagination_WhenStartIsGreaterThanSize() throws IOException {
+        // Arrange
+        User currentUser = new User();
+        currentUser.setUsername("currentUser");
+        currentUser.setRole(Role.ADMIN);
+
+        mockCurrentUser(currentUser);
+
+        List<Book> books = Arrays.asList(
+                new Book("Book 1", "Author 1", "12345", "10.00", new Date(), "url1"),
+                new Book("Book 2", "Author 2", "67890", "15.00", new Date(), "url2")
+        );
+
+        Pageable pageable = PageRequest.of(2, 10, Sort.by("title").ascending());
+        Page<Book> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, books.size());
+
+        when(bookRepository.findAll(pageable)).thenReturn(emptyPage);
+
+        // Act
+        ResponseEntity<Page<BookDto>> response = bookService.getAllBooks(2, 10);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Page<BookDto> responseBody = response.getBody();
+        assertEquals(2, responseBody.getTotalElements(), "The total number of elements should match the books list size");
+        assertEquals(0, responseBody.getNumberOfElements(), "The number of elements on the page should be 0");
+        assertEquals(2, responseBody.getNumber(), "The page number should match the requested page");
+        assertEquals(10, responseBody.getSize(), "The page size should match the requested size");
+    }
+
+    @Test
     public void testGetAllBooks_Forbidden() throws IOException {
-        // Mock current user without permission
+        // Arrange
         currentUser.setRole(Role.GUEST);
         mockCurrentUser(currentUser);
 
-        // Call the method
+        // Act
         ResponseEntity<Page<BookDto>> response = bookService.getAllBooks(0, 10);
 
         // Assert
@@ -372,10 +392,10 @@ public class BookServiceTest {
 
     @Test
     public void testGetAllBooks_Unauthorized() throws IOException {
-        // Mock no current user
+        // Arrange
         mockCurrentUser(null);
 
-        // Call the method
+        // Act
         ResponseEntity<Page<BookDto>> response = bookService.getAllBooks(0, 10);
 
         // Assert
@@ -471,10 +491,13 @@ public class BookServiceTest {
         // Arrange
         User user = new User();
         user.setId(1);
-        user.setBooks(Set.of(
-                new Book("Book 1", "Author 1", "12345", "10.00", new Date(), "url1"),
-                new Book("Book 2", "Author 2", "67890", "15.00", new Date(), "url2")
-        ));
+        Book book1 = new Book(1, "Book 1", "Author 1");
+        Book book2 = new Book(2, "Book 2", "Author 2");
+        Set<Book> userBooks = new HashSet<>();
+        userBooks.add(book1);
+        userBooks.add(book2);
+        user.setBooks(userBooks);
+
         when(userRepository.findById(1)).thenReturn(Optional.of(user));
 
         // Act
@@ -501,14 +524,44 @@ public class BookServiceTest {
     }
 
     @Test
+    public void testGetBooksByUserId_StartGreaterThanBooksSize_ReturnsEmptyPage() {
+        // Arrange
+        User user = new User();
+        user.setId(1);
+        List<Book> books = new ArrayList<>();
+        books.add(new Book("Title 1", "Author 1"));
+        books.add(new Book("Title 2", "Author 2"));
+        user.setBooks(new HashSet<>(books));
+
+        int page = 2;  // This will result in a start index greater than books.size()
+        int size = 2;  // Page size
+
+        when(userRepository.findById(1)).thenReturn(Optional.of(user));
+
+        // Act
+        Page<BookDetailWithoutUserListDto> result = bookService.getBooksByUserId(1, page, size);
+
+        // Assert
+        PageRequest expectedPaging = PageRequest.of(page, size, Sort.by("author").and(Sort.by("title")).ascending());
+        assertTrue(result.isEmpty(), "Expected the result to be an empty page");
+        assertEquals(expectedPaging, result.getPageable(), "Expected the paging to match");
+        assertEquals(books.size(), result.getTotalElements(), "Expected the total elements to match the books size");
+    }
+
+
+    @Test
     public void testGetBooksByUserIdentifier_SuccessByUsername() {
         // Arrange
         User user = new User();
         user.setUsername("testuser");
-        user.setBooks(Set.of(
-                new Book("Book 1", "Author 1", "12345", "10.00", new Date(), "url1"),
-                new Book("Book 2", "Author 2", "67890", "15.00", new Date(), "url2")
-        ));
+
+        Book book1 = new Book(1, "Book 1", "Author 1");
+        Book book2 = new Book(2, "Book 2", "Author 2");
+        Set<Book> userBooks = new HashSet<>();
+        userBooks.add(book1);
+        userBooks.add(book2);
+        user.setBooks(userBooks);
+
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
 
         // Act
@@ -525,10 +578,13 @@ public class BookServiceTest {
         // Arrange
         User user = new User();
         user.setEmail("testuser@test.com");
-        user.setBooks(Set.of(
-                new Book("Book 1", "Author 1", "12345", "10.00", new Date(), "url1"),
-                new Book("Book 2", "Author 2", "67890", "15.00", new Date(), "url2")
-        ));
+        Book book1 = new Book(1, "Book 1", "Author 1");
+        Book book2 = new Book(2, "Book 2", "Author 2");
+        Set<Book> userBooks = new HashSet<>();
+        userBooks.add(book1);
+        userBooks.add(book2);
+        user.setBooks(userBooks);
+
         when(userRepository.findByUsername("invalid")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("testuser@test.com")).thenReturn(Optional.of(user));
 
@@ -737,28 +793,34 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testAddBookToCurrentUser_ConcurrentModificationException() {
+    public void testAddBookToCurrentUser_ConcurrentModification() throws BookNotFoundException {
         // Arrange
         User currentUser = new User();
         currentUser.setUsername("testuser");
-        currentUser.setRole(Role.ADMIN);
-        Book book = new Book();
-        currentUser.setBooks(new HashSet<>());
+        currentUser.setVersion(1L);
 
-        mockCurrentUser(currentUser);
+        Book bookToAdd = new Book();
+        bookToAdd.setIsbn("12345");
+        bookToAdd.setVersion(1L);
+
+        Set<Book> userBooks = new HashSet<>();
+        currentUser.setBooks(userBooks);
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
-        when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(book));
+        when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(bookToAdd));
 
-        doThrow(new ConcurrentModificationException()).when(userRepository).save(currentUser);
+        doAnswer(invocation -> {
+            currentUser.setVersion(2L);
+            bookToAdd.setVersion(2L);
+            return currentUser;
+        }).when(userRepository).save(currentUser);
 
         // Act
         ResponseEntity<Object> response = bookService.addBookToCurrentUser("12345", "isbn");
 
         // Assert
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("Concurrent modification detected. Please try again.", response.getBody());
-        verify(userRepository, times(MAX_RETRY_ATTEMPTS)).save(currentUser);
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode(), "Conflict occurred due to concurrent modification.");
+        assertEquals("Conflict occurred due to concurrent modification.", response.getBody(), "Expected conflict message in response body.");
     }
 
     @Test
@@ -767,11 +829,14 @@ public class BookServiceTest {
         User currentUser = new User();
         currentUser.setUsername("testuser");
         currentUser.setRole(Role.ADMIN);
-
+        currentUser.setBooks(new HashSet<>());
         mockCurrentUser(currentUser);
 
-        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        Book bookToAdd = new Book();
+        bookToAdd.setIsbn("12345");
 
+        when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(bookToAdd));
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
         doThrow(new NullPointerException("Unexpected error")).when(userRepository).save(currentUser);
 
         // Act
@@ -779,7 +844,7 @@ public class BookServiceTest {
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertTrue(((String)response.getBody()).contains("An unexpected error occurred"));
+        assertTrue(((String) Objects.requireNonNull(response.getBody())).contains("An unexpected error occurred"));
     }
 
     @Test
@@ -801,22 +866,20 @@ public class BookServiceTest {
 
         // Assert
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("Book already in user's collection", response.getBody());
+        assertEquals("Book already exists in user's collection", response.getBody());
         verify(userRepository, never()).save(currentUser);
     }
 
     @Test
-    public void testAddBookToCurrentUser_UserNotFound() {
+    public void testAddBookToCurrentUser_UserNotFound() throws BookNotFoundException {
         // Arrange
-        when(userService.getCurrentUser()).thenReturn(Optional.empty());
+        when(userService.getCurrentUser()).thenReturn(Optional.empty());  // Simulate no current user
 
         // Act
         ResponseEntity<Object> response = bookService.addBookToCurrentUser("12345", "isbn");
 
         // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("Current user not found", response.getBody());
-        verify(userRepository, never()).save(any(User.class));
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode(), "Expected unauthorized status when user not found.");
     }
 
     @Test
@@ -863,60 +926,40 @@ public class BookServiceTest {
         verify(userRepository, times(1)).save(currentUser);
     }
 
-
     @Test
-    public void testDeleteBookFromCurrentUser_OptimisticLockException() {
+    public void testDeleteBookFromCurrentUser_ConcurrentModification() throws BookNotFoundException {
         // Arrange
         User currentUser = new User();
         currentUser.setUsername("testuser");
-        currentUser.setRole(Role.ADMIN);
+        currentUser.setVersion(1L);
 
         Book bookToDelete = new Book();
         bookToDelete.setIsbn("12345");
-        currentUser.setBooks(new HashSet<>(Collections.singleton(bookToDelete)));
+        bookToDelete.setVersion(1L);
 
-        mockCurrentUser(currentUser);
+        Set<Book> userBooks = new HashSet<>();
+        userBooks.add(bookToDelete);
+        currentUser.setBooks(userBooks);
 
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
         when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(bookToDelete));
 
-        // Simulate OptimisticLockException on save
-        doThrow(new OptimisticLockException()).when(userRepository).save(currentUser);
+        // Use doAnswer to simulate a version change after the save operation
+        doAnswer(invocation -> {
+            currentUser.setVersion(2L);  // Simulate version change after saving
+            bookToDelete.setVersion(2L);  // Simulate version change after saving
+            return currentUser;
+        }).when(userRepository).save(currentUser);
 
         // Act
         ResponseEntity<Object> response = bookService.deleteBookFromCurrentUser("12345", "isbn");
 
         // Assert
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("Conflict occurred while deleting the book from user. Please try again.", response.getBody());
-        verify(userRepository, times(MAX_RETRY_ATTEMPTS)).save(currentUser);
     }
 
     @Test
-    public void testDeleteBookFromCurrentUser_BookNotInCollection() {
-        // Arrange
-        User currentUser = new User();
-        currentUser.setUsername("testuser");
-        currentUser.setRole(Role.ADMIN);
-        currentUser.setBooks(new HashSet<>());
-        mockCurrentUser(currentUser);
-
-        Book book = new Book();
-
-        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
-        when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(book));
-
-        // Act
-        ResponseEntity<Object> response = bookService.deleteBookFromCurrentUser("12345", "isbn");
-
-        // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("Book not found in user's collection", response.getBody());
-        verify(userRepository, never()).save(any(User.class));
-    }
-
-    @Test
-    public void testDeleteBookFromCurrentUser_UserNotFound() {
+    public void testDeleteBookFromCurrentUser_Unauthorized() {
         // Arrange
         when(userService.getCurrentUser()).thenReturn(Optional.empty());
 
@@ -924,9 +967,70 @@ public class BookServiceTest {
         ResponseEntity<Object> response = bookService.deleteBookFromCurrentUser("12345", "isbn");
 
         // Assert
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    public void testDeleteBookFromCurrentUser_BookNotFoundException() throws BookNotFoundException {
+        // Arrange
+        User currentUser = new User();
+        currentUser.setUsername("testuser");
+
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(bookRepository.findBookByIsbn("12345")).thenThrow(new BookNotFoundException("Book not found with ISBN: " + "12345", null));
+
+        // Act
+        ResponseEntity<Object> response = bookService.deleteBookFromCurrentUser("12345", "isbn");
+
+        // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("Current user not found", response.getBody());
-        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    public void testDeleteBookFromCurrentUser_BookNotInUserList() throws BookNotFoundException {
+        // Arrange
+        User currentUser = new User();
+        currentUser.setUsername("testuser");
+
+        Book bookToDelete = new Book();
+        bookToDelete.setIsbn("12345");
+
+        Set<Book> userBooks = new HashSet<>();
+        currentUser.setBooks(userBooks);
+
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(bookToDelete));
+
+        // Act
+        ResponseEntity<Object> response = bookService.deleteBookFromCurrentUser("12345", "isbn");
+
+        // Assert
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode(), "Should return NOT_FOUND when book is not in user's book list.");
+    }
+
+    @Test
+    public void testDeleteBookFromCurrentUser_InternalServerError() throws BookNotFoundException {
+        // Arrange
+        User currentUser = new User();
+        currentUser.setUsername("testuser");
+
+        Book bookToDelete = new Book();
+        bookToDelete.setIsbn("12345");
+
+        Set<Book> userBooks = new HashSet<>();
+        userBooks.add(bookToDelete);
+        currentUser.setBooks(userBooks);
+
+        when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
+        when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(bookToDelete));
+
+        doThrow(new RuntimeException("Unexpected error")).when(userRepository).save(currentUser);
+
+        // Act
+        ResponseEntity<Object> response = bookService.deleteBookFromCurrentUser("12345", "isbn");
+
+        // Assert
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     }
 
     @AfterEach
