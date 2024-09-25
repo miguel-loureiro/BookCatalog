@@ -9,6 +9,7 @@ import com.bookcatalog.bookcatalog.repository.BookRepository;
 import com.bookcatalog.bookcatalog.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
+@Profile("test")
 public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEvent> {
 
     private final UserRepository userRepository;
@@ -53,7 +55,7 @@ public class InitialDataSeeder implements ApplicationListener<ContextRefreshedEv
         RegisterUserDto userDto = new RegisterUserDto();
         userDto.setUsername(superUsername);
         userDto.setEmail(superEmail);
-        userDto.setPassword("superpassword");
+        userDto.setPassword("baBAlu4$4");
         userDto.setRole(Role.SUPER);
 
         var newSuperUser = new User();
