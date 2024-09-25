@@ -94,9 +94,11 @@ class JwtServiceTest {
     @Test
     public void testGenerateToken_UserExists() {
         // Arrange
+        CustomUserDetails customUserDetails = new CustomUserDetails(new User("adminuser", "", "", Role.ADMIN));
+
         User user = new User();
-        user.setUsername("testuser");
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        user.setUsername("adminuser");
+        when(userRepository.findByUsername("adminuser")).thenReturn(Optional.of(user));
 
         Map<String, Object> extraClaims = new HashMap<>();
 
@@ -105,13 +107,24 @@ class JwtServiceTest {
 
         // Assert
         assertNotNull(mockToken);
+        assertFalse(mockToken.isEmpty());
+
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(jwtService.getSignInKey())
+                .build()
+                .parseClaimsJws(mockToken)
+                .getBody();
+
+        assertEquals("adminuser", claims.getSubject());
+        assertEquals("ADMIN", claims.get("role"));
     }
 
     @Test
     void testGenerateToken_UserFound_ShouldGenerateToken() {
         // Arrange
         String username = "testUser";
-        when(userDetails.getUsername()).thenReturn(username);
+        CustomUserDetails customUserDetails = new CustomUserDetails(new User(username, "", "", Role.READER));
+
         User user = new User(username, "testUser@example.com", "encodedPassword", Role.READER);
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
 
@@ -130,6 +143,7 @@ class JwtServiceTest {
                 .getBody();
 
         assertEquals(username, claims.getSubject());
+        assertEquals("READER", claims.get("role"));  // Verifying the role claim
     }
 
     @Test
@@ -143,7 +157,7 @@ class JwtServiceTest {
         });
 
         assertEquals("User not found or invalid role for token generation: null", exception.getMessage());
-        verify(userRepository, times(1)).findByUsername("testuser");
+        verify(userRepository, times(1)).findByUsername(null);
     }
 
     @Test
@@ -162,6 +176,7 @@ class JwtServiceTest {
                 .getBody();
 
         assertEquals("guestuser", claims.getSubject());
+        assertEquals("GUEST", claims.get("role"));
     }
 
     @Test
@@ -170,7 +185,7 @@ class JwtServiceTest {
         CustomUserDetails guestUserDetails = new CustomUserDetails(new User("guestuser", "", "", Role.GUEST));
 
         // Act
-        String token = jwtService.generateToken(guestUserDetails);  // Passing guestUserDetails to generate token
+        String token = jwtService.generateToken(guestUserDetails);
 
         // Assert
         assertNotNull(token);
@@ -189,12 +204,10 @@ class JwtServiceTest {
     @Test
     void testGenerateToken_ValidUser_ShouldGenerateTokenForUser() {
         // Arrange
-        CustomUserDetails validUserDetails = mock(CustomUserDetails.class);
-        when(validUserDetails.getUsername()).thenReturn("testuser");
+        User user = new User("validuser", "validUser@example.com", "encodedPassword", Role.ADMIN);
+        CustomUserDetails validUserDetails = new CustomUserDetails(user);
 
-        User user = new User("testuser", "testuser@example.com", "encodedPassword", Role.READER);
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
-
+        when(userRepository.findByUsername("validuser")).thenReturn(Optional.of(user));
         // Act
         String token = jwtService.generateToken(validUserDetails);
 
@@ -202,13 +215,14 @@ class JwtServiceTest {
         assertNotNull(token);
         assertFalse(token.isEmpty());
 
+        // Verify that the token contains the expected claims
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(jwtService.getSignInKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
 
-        assertEquals("testuser", claims.getSubject());
+        assertEquals("validuser", claims.getSubject());
     }
 
     @Test
@@ -237,12 +251,11 @@ class JwtServiceTest {
     @Test
     public void testIsTokenExpired() {
         // Arrange
-        CustomUserDetails userDetails = mock(CustomUserDetails.class);
-        when(userDetails.getUsername()).thenReturn("testUser");
+        User user = new User("validuser", "validUser@example.com", "encodedPassword", Role.ADMIN);
+        CustomUserDetails validUserDetails = new CustomUserDetails(user);
 
         long pastExpiration = -1000 * 60 * 60;
-
-        String token = jwtService.buildToken(new HashMap<>(), userDetails, pastExpiration);
+        String token = jwtService.buildToken(new HashMap<>(), validUserDetails, pastExpiration);
 
         // Act
         boolean isExpired = jwtService.isTokenExpired(token);
@@ -253,11 +266,12 @@ class JwtServiceTest {
     @Test
     public void testIsTokenExpired_NotExpired() {
         // Arrange
-        CustomUserDetails userDetails = mock(CustomUserDetails.class);
-        when(userDetails.getUsername()).thenReturn("testUser");
+        User user = new User("validuser", "validUser@example.com", "encodedPassword", Role.ADMIN);
+        CustomUserDetails validUserDetails = new CustomUserDetails(user);
 
-        long expirationInPast = System.currentTimeMillis() + 1;
-        String token = jwtService.buildToken(new HashMap<>(), userDetails, expirationInPast);
+        // Set expiration time to 1 hour in the future
+        long futureExpiration = 1000 * 60 * 60; // 1 hour in the future
+        String token = jwtService.buildToken(new HashMap<>(), validUserDetails, futureExpiration);
 
         // Act
         boolean isExpired = jwtService.isTokenExpired(token);
@@ -268,17 +282,37 @@ class JwtServiceTest {
 
     @Test
     public void testExtractExpiration() {
-        // Arrange
-        CustomUserDetails mockUserDetails = mock(CustomUserDetails.class);
-        when(mockUserDetails.getUsername()).thenReturn("testUser");
+        User user = new User("validuser", "validUser@example.com", "encodedPassword", Role.ADMIN);
+        CustomUserDetails validUserDetails = new CustomUserDetails(user);
 
-        String token = jwtService.buildToken(new HashMap<>(), mockUserDetails, 10000);
+        // Set expiration time to 10 seconds in the future
+        long futureExpiration = 10000; // 10 seconds in the future
+        String token = jwtService.buildToken(new HashMap<>(), validUserDetails, futureExpiration);
 
         // Act
         Date expiration = jwtService.extractExpiration(token);
 
         // Assert
         assertTrue(expiration.after(new Date(System.currentTimeMillis())));
+    }
+
+    @Test
+    void testIsTokenValidWithFutureToken() {
+        // Arrange
+        User user = new User("validuser", "validUser@example.com", "encodedPassword", Role.ADMIN);
+        CustomUserDetails validUserDetails = new CustomUserDetails(user);
+
+        when(userDetails.getUsername()).thenReturn("validuser");
+
+        // Set expiration time to 1 hour in the future
+        long futureExpiration = 1000 * 60 * 60; // 1 hour in the future
+        String token = jwtService.buildToken(new HashMap<>(), validUserDetails, futureExpiration);
+
+        // Act
+        boolean isValid = jwtService.isTokenValid(token, userDetails);
+
+        // Assert
+        assertTrue(isValid, "The token should be valid because it is not expired yet");
     }
 
     @Test
@@ -290,21 +324,6 @@ class JwtServiceTest {
         System.out.println(key.getAlgorithm());
         assertNotNull(key);
         assertEquals(Keys.hmacShaKeyFor(secretKey.getBytes()).getAlgorithm(), key.getAlgorithm());
-    }
-
-
-    @Test
-    void testIsTokenValidWithFutureToken() {
-        // Arrange
-
-        long futureExpiration = 1000 * 60 * 60; // 1 hour in the future
-        String token = jwtService.buildToken(new HashMap<>(),customUserDetails, futureExpiration);
-
-        // Act
-        boolean isValid = jwtService.isTokenValid(token, userDetails);
-
-        // Assert
-        assertTrue(isValid, "The token should be valid because it is not expired yet");
     }
 
     @Test

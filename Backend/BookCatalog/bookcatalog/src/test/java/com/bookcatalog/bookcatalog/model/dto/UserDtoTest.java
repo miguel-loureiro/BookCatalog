@@ -166,6 +166,19 @@ class UserDtoTest {
 
     @Test
     public void testEqualsAndHashCode() {
+        // Arrange
+        Set<BookTitleAndAuthorDto> books1 = new HashSet<>();
+        books1.add(new BookTitleAndAuthorDto("Book 1", "Author A"));
+        books1.add(new BookTitleAndAuthorDto("Book 2", "Author B"));
+
+        Set<BookTitleAndAuthorDto> books2 = new HashSet<>();
+        books2.add(new BookTitleAndAuthorDto("Book 1", "Author A"));
+        books2.add(new BookTitleAndAuthorDto("Book 2", "Author B"));
+
+        Set<BookTitleAndAuthorDto> differentBooks = new HashSet<>();
+        differentBooks.add(new BookTitleAndAuthorDto("Different Book", "Different Author"));
+
+        // Act
         UserDto userDto1 = new UserDto("testUser", "test@example.com", Role.READER);
         userDto1.setCoverImage("coverImageUrl.jpg");
         userDto1.setBooks(books1);
@@ -175,12 +188,13 @@ class UserDtoTest {
         userDto2.setBooks(books2);
 
         UserDto userDto3 = new UserDto("differentUser", "different@example.com", Role.READER);
+        userDto3.setBooks(differentBooks);
 
-        assertEquals(userDto1, userDto2);
-        assertNotEquals(userDto1, userDto3);
-
-        assertEquals(userDto1.hashCode(), userDto2.hashCode());
-        assertNotEquals(userDto1.hashCode(), userDto3.hashCode());
+        // Assert
+        assertEquals(userDto1, userDto2, "UserDto1 should be equal to UserDto2 because they have the same data");
+        assertNotEquals(userDto1, userDto3, "UserDto1 should not be equal to UserDto3 due to different username and email");
+        assertEquals(userDto1.hashCode(), userDto2.hashCode(), "Hash codes of UserDto1 and UserDto2 should match");
+        assertNotEquals(userDto1.hashCode(), userDto3.hashCode(), "Hash codes of UserDto1 and UserDto3 should not match");
     }
 
     @Test

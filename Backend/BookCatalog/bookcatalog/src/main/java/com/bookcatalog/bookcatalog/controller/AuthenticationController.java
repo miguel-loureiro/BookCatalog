@@ -42,12 +42,26 @@ public class AuthenticationController {
         User authenticatedUser = authenticationService.authenticate(loginUserDto);
 
         if (authenticatedUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();  // Authentication failed
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         CustomUserDetails customUserDetails = new CustomUserDetails(authenticatedUser);
 
-        String jwtToken = jwtService.generateToken(customUserDetails);
+        String jwtToken;
+
+        try {
+
+            jwtToken = jwtService.generateToken(customUserDetails);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        if (jwtToken == null) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new LoginResponse().setToken(null));
+        }
+
         long expirationTime = jwtService.getExpirationTime();
 
         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(

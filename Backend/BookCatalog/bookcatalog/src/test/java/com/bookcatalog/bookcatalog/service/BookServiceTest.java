@@ -1,6 +1,7 @@
 package com.bookcatalog.bookcatalog.service;
 
 import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
+import com.bookcatalog.bookcatalog.exceptions.InvalidIsbnException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.BookDetailWithoutUserListDto;
@@ -72,7 +73,7 @@ public class BookServiceTest {
         mockBook.setIsbn("1234567890");
 
         mockBookDto = new BookDetailWithoutUserListDto(
-                "Test Title", "Test Author", "12345", "10.00", "01/2021", "imageUrl"
+                "Test Title", "Test Author", "9781234567897", "10.00", "01/2021", "imageUrl"
         );
     }
 
@@ -89,10 +90,29 @@ public class BookServiceTest {
     }
 
     @Test
-    public void testCreateBook_Success() {
+    public void testCreateBook_Valid_Isbn13_Success() {
         // Arrange
         mockCurrentUser(currentUser);
-        mockSaveBook();
+        mockBookDto.setIsbn("9781234567897");
+        when(bookRepository.save(any(Book.class))).thenReturn(mockBook);
+
+        // Act
+        ResponseEntity<Book> response = bookService.createBook(mockBookDto);
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(mockBook.getTitle(), response.getBody().getTitle());
+        assertEquals(mockBook.getAuthor(), response.getBody().getAuthor());
+        verify(bookRepository, times(1)).save(any(Book.class));
+    }
+
+    @Test
+    public void testCreateBook_Valid_Isbn10_Success() {
+        // Arrange
+        mockCurrentUser(currentUser);
+        mockBookDto.setIsbn("0201530821");
+        when(bookRepository.save(any(Book.class))).thenReturn(mockBook);
 
         // Act
         ResponseEntity<Book> response = bookService.createBook(mockBookDto);
@@ -121,7 +141,7 @@ public class BookServiceTest {
     @Test
     public void testCreateBook_Forbidden() {
         // Arrange
-        currentUser.setRole(Role.READER); // Reader doesn't have permission
+        currentUser.setRole(Role.READER);
         mockCurrentUser(currentUser);
 
         // Act
@@ -210,12 +230,12 @@ public class BookServiceTest {
         when(bookRepository.findBookByIsbn(anyString())).thenReturn(Optional.of(mockBook));
 
         // Act
-        Book result = bookService.getBookByIdentifier("12345", "isbn");
+        Book result = bookService.getBookByIdentifier("9781234567897", "isbn");
 
         // Assert
         assertNotNull(result);
         assertEquals(mockBook.getTitle(), result.getTitle());
-        verify(bookRepository, times(1)).findBookByIsbn("12345");
+        verify(bookRepository, times(1)).findBookByIsbn("9781234567897");
     }
 
     @Test
@@ -252,9 +272,9 @@ public class BookServiceTest {
 
         // Act & Assert
         BookNotFoundException thrown = assertThrows(BookNotFoundException.class, () -> {
-            bookService.getBookByIdentifier("98765", "isbn");
+            bookService.getBookByIdentifier("9781234567897", "isbn");
         });
-        assertEquals("Book not found with ISBN: 98765", thrown.getMessage());
+        assertEquals("Book not found with ISBN: 9781234567897", thrown.getMessage());
     }
 
     @Test
@@ -370,6 +390,7 @@ public class BookServiceTest {
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         Page<BookDto> responseBody = response.getBody();
+        assertNotNull(responseBody);
         assertEquals(2, responseBody.getTotalElements(), "The total number of elements should match the books list size");
         assertEquals(0, responseBody.getNumberOfElements(), "The number of elements on the page should be 0");
         assertEquals(2, responseBody.getNumber(), "The page number should match the requested page");
@@ -670,20 +691,20 @@ public class BookServiceTest {
         mockCurrentUser(currentUser);
         when(userService.getCurrentUser()).thenReturn(Optional.of(currentUser));
 
-        Book existingBook = new Book("Title", "Author", "12345", "10.00", new Date(), "url1");
+        Book existingBook = new Book("Title", "Author", "0009781234567", "10.00", new Date(), "url1");
         existingBook.setId(1);
-        when(bookRepository.findBookByIsbn("12345")).thenReturn(Optional.of(existingBook));
+        when(bookRepository.findBookByIsbn("0009781234567")).thenReturn(Optional.of(existingBook));
 
-        Book newBookDetails = new Book("New Title", "New Author", "12345", "15.00", new Date(), "url2");
+        Book newBookDetails = new Book("New Title", "New Author", "0009781234567", "15.00", new Date(), "url2");
         newBookDetails.setId(existingBook.getId());
 
         // Act
-        ResponseEntity<Book> response = bookService.updateBook("12345", "isbn", newBookDetails);
+        ResponseEntity<Book> response = bookService.updateBook("0009781234567", "isbn", newBookDetails);
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("New Title", Objects.requireNonNull(response.getBody()).getTitle());
-        assertEquals("12345", response.getBody().getIsbn());
+        assertEquals("0009781234567", response.getBody().getIsbn());
         verify(bookRepository, times(1)).save(newBookDetails);
     }
 

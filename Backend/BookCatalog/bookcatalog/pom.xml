@@ -65,7 +65,7 @@
 	<dependency>
 		<groupId>org.postgresql</groupId>
 		<artifactId>postgresql</artifactId>
-		<scope>runtime</scope>
+		<scope>42.2.18</scope>
 	</dependency>
 	<dependency>
 		<groupId>org.springframework.boot</groupId>
@@ -125,8 +125,8 @@
 	</dependency>
 	<dependency>
 		<groupId>org.pitest</groupId>
-		<artifactId>pitest</artifactId>
-		<version>1.16.1</version>
+		<artifactId>pitest-maven</artifactId>
+		<version>LATEST</version>
 	</dependency>
 	<dependency>
 		<groupId>org.pitest</groupId>

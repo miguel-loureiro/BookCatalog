@@ -30,8 +30,11 @@ public class Book {
     private String author;
     @Setter
     @Getter
-    @Column(unique = true, nullable = false)
-    @Pattern(regexp = "^(97([89]))?\\d{9}(\\d|X)$", message = "Invalid ISBN number. Must be a valid ISBN-10 or ISBN-13 format.")
+    @Pattern(
+            regexp = "^(\\d{9}[\\dX])|(97[89]\\d{9}[\\dX])$",
+            message = "Invalid ISBN number. Must be a valid ISBN-10 or ISBN-13 format."
+    )
+    @Column(unique = true, nullable = false, length = 13)
     private String isbn;
     @Setter
     @Getter

@@ -213,6 +213,28 @@ class UserServiceTest {
     }
 
     @Test
+    public void testCreateUser_UnauthorizedWhenPrincipalNotUserDetails() {
+        // Arrange
+        RegisterUserDto mockRegisterUserDto = new RegisterUserDto();
+        mockRegisterUserDto.setUsername("testuser");
+        mockRegisterUserDto.setEmail("testuser@example.com");
+        mockRegisterUserDto.setPassword("password123");
+        mockRegisterUserDto.setRole(Role.READER);
+
+
+        when(authentication.getPrincipal()).thenReturn("anonymousUser");
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(securityContext);
+
+        // Act
+        ResponseEntity<UserDto> response = userService.createUser(mockRegisterUserDto);
+
+        // Assert
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNull(response.getBody());
+    }
+
+    @Test
     public void testDeleteUser_CurrentUser_SUPER_Success() throws IOException {
         // Arrange
         mockCurrentUser(currentUser);
@@ -464,7 +486,6 @@ class UserServiceTest {
         UserDto input = new UserDto();
         input.setUsername("updatedUser");
 
-        // Mock authentication with a non-UserDetails principal
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn("anonymousUser");
         when(SecurityContextHolder.getContext().getAuthentication()).thenReturn(authentication);
@@ -631,7 +652,6 @@ class UserServiceTest {
         String username = "testUser";
         String newPassword = "newPassword123";
 
-        // Simulate no authentication context
         when(SecurityContextHolder.getContext().getAuthentication()).thenReturn(null);
 
         // Act
@@ -648,7 +668,6 @@ class UserServiceTest {
         String username = "testUser";
         String newPassword = "newPassword123";
 
-        // Simulate anonymous user
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn("anonymousUser");
         when(SecurityContextHolder.getContext().getAuthentication()).thenReturn(authentication);
@@ -804,9 +823,6 @@ class UserServiceTest {
         // Assert
         assertFalse(result.isPresent());
     }
-
-
-
 
     @Test
     public void testGetCurrentUser_Success() {

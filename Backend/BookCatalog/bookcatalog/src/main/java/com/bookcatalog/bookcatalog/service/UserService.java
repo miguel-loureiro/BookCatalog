@@ -67,9 +67,6 @@ Performance: Directly converting RegisterUserDto to User avoids an extra transfo
         }
 
         Object principal = authentication.getPrincipal();
-        if (!(principal instanceof UserDetails)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
-        }
 
         CustomUserDetails currentUserDetails = (CustomUserDetails) principal;
         User currentUser = currentUserDetails.getUser();

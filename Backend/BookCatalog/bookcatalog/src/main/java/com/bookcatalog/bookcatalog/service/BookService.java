@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.bookcatalog.bookcatalog.exceptions.BookNotFoundException;
+import com.bookcatalog.bookcatalog.exceptions.InvalidIsbnException;
 import com.bookcatalog.bookcatalog.model.Role;
 import com.bookcatalog.bookcatalog.model.User;
 import com.bookcatalog.bookcatalog.model.dto.BookDetailWithoutUserListDto;
@@ -28,8 +29,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class BookService {
-
-    private static final int MAX_RETRY_ATTEMPTS = 3;
 
     @Autowired
     private final BookRepository bookRepository;
@@ -58,6 +57,11 @@ public class BookService {
             User currentUser = currentUserOpt.get();
             if (!hasPermissionToCreateOrUpdateBooks(currentUser)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            if (!isValidIsbn(bookDto.getIsbn())) {
+
+                throw new InvalidIsbnException("Invalid ISBN number: " + bookDto.getIsbn(), null);
             }
 
             Book book = new Book();
@@ -228,6 +232,10 @@ public class BookService {
 
             Book existingBook = getBookByIdentifier(identifier, type);
 
+            if (!isValidIsbn(newBookDetails.getIsbn())) {
+                throw new InvalidIsbnException("Invalid ISBN number: " + newBookDetails.getIsbn(), null);
+            }
+
             newBookDetails.setId(existingBook.getId());
 
             bookRepository.save(newBookDetails);
@@ -362,6 +370,41 @@ public class BookService {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    private boolean isValidIsbn(String isbn) {
+
+        return isbn != null && (isValidIsbn10(isbn) || isValidIsbn13(isbn));
+    }
+
+    private boolean isValidIsbn10(String isbn) {
+        if (isbn.length() != 10) return false;
+
+        int sum = 0;
+        for (int i = 0; i < 9; i++) {
+            if (!Character.isDigit(isbn.charAt(i))) return false;
+            sum += (isbn.charAt(i) - '0') * (10 - i);
+        }
+
+        char checksum = isbn.charAt(9);
+        sum += (checksum == 'X') ? 10 : (checksum - '0');
+
+        return sum % 11 == 0;
+    }
+
+    private boolean isValidIsbn13(String isbn) {
+        if (isbn.length() != 13) return false;
+
+        int sum = 0;
+        for (int i = 0; i < 12; i++) {
+            int digit = isbn.charAt(i) - '0';
+            sum += (i % 2 == 0) ? digit : digit * 3;
+        }
+
+        int checksum = 10 - (sum % 10);
+        if (checksum == 10) checksum = 0;
+
+        return checksum == (isbn.charAt(12) - '0');
     }
 
     private Page<Book> paginateBooks(List<Book> books, int page, int size) {
