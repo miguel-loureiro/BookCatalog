@@ -40,6 +40,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/login", "/auth/signup/**", "/h2-console/**", "/guest/login", "/guest/books").permitAll()
                 .requestMatchers("/user/signup").permitAll()
+                .requestMatchers("/health").permitAll()
                 .requestMatchers("/books").hasAnyRole("SUPER", "ADMIN")
                 .anyRequest().authenticated());
         http.sessionManagement(session -> session
