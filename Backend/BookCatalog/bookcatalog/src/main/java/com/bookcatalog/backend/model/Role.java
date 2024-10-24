@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.model;
+package com.bookcatalog.backend.model;
 
 import java.util.Collections;
 import java.util.List;

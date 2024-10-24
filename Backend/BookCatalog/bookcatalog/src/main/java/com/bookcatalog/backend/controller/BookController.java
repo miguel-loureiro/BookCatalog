@@ -1,11 +1,11 @@
-package com.newbookcatalog.newbookcatalog.controller;
+package com.bookcatalog.backend.controller;
 
 import java.io.IOException;
 import java.util.Set;
 
-import com.newbookcatalog.newbookcatalog.exceptions.BookNotFoundException;
-import com.newbookcatalog.newbookcatalog.model.dto.BookDetailWithoutUserListDto;
-import com.newbookcatalog.newbookcatalog.model.dto.BookDto;
+import com.bookcatalog.backend.exceptions.BookNotFoundException;
+import com.bookcatalog.backend.model.dto.BookDetailWithoutUserListDto;
+import com.bookcatalog.backend.model.dto.BookDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -13,8 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
-import com.newbookcatalog.newbookcatalog.service.BookService;
+import com.bookcatalog.backend.model.Book;
+import com.bookcatalog.backend.service.BookService;
 
 @RequestMapping("/book")
 @RestController

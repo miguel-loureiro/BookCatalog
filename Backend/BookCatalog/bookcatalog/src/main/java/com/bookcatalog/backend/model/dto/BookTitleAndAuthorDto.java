@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.model.dto;
+package com.bookcatalog.backend.model.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

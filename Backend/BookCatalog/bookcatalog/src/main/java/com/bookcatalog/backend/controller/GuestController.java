@@ -1,14 +1,14 @@
-package com.newbookcatalog.newbookcatalog.controller;
+package com.bookcatalog.backend.controller;
 
-import com.newbookcatalog.newbookcatalog.model.CustomUserDetails;
-import com.newbookcatalog.newbookcatalog.model.LoginResponse;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
-import com.newbookcatalog.newbookcatalog.service.AuthenticationService;
-import com.newbookcatalog.newbookcatalog.service.BookService;
-import com.newbookcatalog.newbookcatalog.service.JwtService;
-import com.newbookcatalog.newbookcatalog.service.UserService;
+import com.bookcatalog.backend.model.CustomUserDetails;
+import com.bookcatalog.backend.model.LoginResponse;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.repository.UserRepository;
+import com.bookcatalog.backend.service.AuthenticationService;
+import com.bookcatalog.backend.service.BookService;
+import com.bookcatalog.backend.service.JwtService;
+import com.bookcatalog.backend.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

@@ -1,6 +1,6 @@
-package com.newbookcatalog.newbookcatalog.model.dto;
+package com.bookcatalog.backend.model.dto;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
+import com.bookcatalog.backend.model.Book;
 import lombok.Getter;
 import lombok.Setter;
 

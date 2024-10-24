@@ -1,7 +1,7 @@
-package com.newbookcatalog.newbookcatalog.model;
+package com.bookcatalog.backend.model;
 
-import com.newbookcatalog.newbookcatalog.model.dto.BookTitleAndAuthorDto;
-import com.newbookcatalog.newbookcatalog.model.dto.UserDto;
+import com.bookcatalog.backend.model.dto.BookTitleAndAuthorDto;
+import com.bookcatalog.backend.model.dto.UserDto;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
-package com.newbookcatalog.newbookcatalog.config;
+package com.bookcatalog.backend.config;
 
-import com.newbookcatalog.newbookcatalog.service.CustomUserDetailsService;
-import com.newbookcatalog.newbookcatalog.service.JwtService;
+import com.bookcatalog.backend.service.CustomUserDetailsService;
+import com.bookcatalog.backend.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;

@@ -1,7 +1,7 @@
-package com.newbookcatalog.newbookcatalog.model.dto;
+package com.bookcatalog.backend.model.dto;
 
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
 import lombok.Getter;
 import lombok.Setter;
 

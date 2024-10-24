@@ -1,12 +1,12 @@
-package com.newbookcatalog.newbookcatalog.service;
+package com.bookcatalog.backend.service;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
-import com.newbookcatalog.newbookcatalog.model.CustomUserDetails;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.RegisterUserDto;
-import com.newbookcatalog.newbookcatalog.model.dto.UserDto;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
+import com.bookcatalog.backend.model.Book;
+import com.bookcatalog.backend.model.CustomUserDetails;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.RegisterUserDto;
+import com.bookcatalog.backend.model.dto.UserDto;
+import com.bookcatalog.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;

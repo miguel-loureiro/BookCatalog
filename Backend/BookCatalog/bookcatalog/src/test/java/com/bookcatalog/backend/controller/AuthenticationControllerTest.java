@@ -1,13 +1,13 @@
-package com.newbookcatalog.newbookcatalog.controller;
+package com.bookcatalog.backend.controller;
 
-import com.newbookcatalog.newbookcatalog.model.CustomUserDetails;
-import com.newbookcatalog.newbookcatalog.model.LoginResponse;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.LoginUserDto;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
-import com.newbookcatalog.newbookcatalog.service.AuthenticationService;
-import com.newbookcatalog.newbookcatalog.service.JwtService;
+import com.bookcatalog.backend.model.CustomUserDetails;
+import com.bookcatalog.backend.model.LoginResponse;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.LoginUserDto;
+import com.bookcatalog.backend.repository.UserRepository;
+import com.bookcatalog.backend.service.AuthenticationService;
+import com.bookcatalog.backend.service.JwtService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

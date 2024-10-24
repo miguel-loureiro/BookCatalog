@@ -1,11 +1,11 @@
-package com.newbookcatalog.newbookcatalog;
+package com.bookcatalog.backend;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.RegisterUserDto;
-import com.newbookcatalog.newbookcatalog.repository.BookRepository;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
+import com.bookcatalog.backend.model.Book;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.RegisterUserDto;
+import com.bookcatalog.backend.repository.BookRepository;
+import com.bookcatalog.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Profile;

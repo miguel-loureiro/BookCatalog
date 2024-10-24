@@ -1,11 +1,11 @@
-package com.newbookcatalog.newbookcatalog.service;
+package com.bookcatalog.backend.service;
 
-import com.newbookcatalog.newbookcatalog.exceptions.InvalidUserRoleException;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.LoginUserDto;
-import com.newbookcatalog.newbookcatalog.model.dto.RegisterUserDto;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
+import com.bookcatalog.backend.exceptions.InvalidUserRoleException;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.LoginUserDto;
+import com.bookcatalog.backend.model.dto.RegisterUserDto;
+import com.bookcatalog.backend.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

@@ -1,11 +1,11 @@
-package com.newbookcatalog.newbookcatalog.service;
+package com.bookcatalog.backend.service;
 
-import com.newbookcatalog.newbookcatalog.exceptions.BookNotFoundException;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.BookDetailWithoutUserListDto;
-import com.newbookcatalog.newbookcatalog.model.dto.BookDto;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
+import com.bookcatalog.backend.exceptions.BookNotFoundException;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.BookDetailWithoutUserListDto;
+import com.bookcatalog.backend.model.dto.BookDto;
+import com.bookcatalog.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,8 +17,8 @@ import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
-import com.newbookcatalog.newbookcatalog.repository.BookRepository;
+import com.bookcatalog.backend.model.Book;
+import com.bookcatalog.backend.repository.BookRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;

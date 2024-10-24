@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.exceptions;
+package com.bookcatalog.backend.exceptions;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import org.junit.jupiter.api.BeforeEach;

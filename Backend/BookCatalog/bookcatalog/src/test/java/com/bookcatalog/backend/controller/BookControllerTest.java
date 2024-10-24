@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.controller;
+package com.bookcatalog.backend.controller;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -8,14 +8,14 @@ import static org.mockito.Mockito.*;
 import java.io.IOException;
 import java.util.*;
 
-import com.newbookcatalog.newbookcatalog.exceptions.BookNotFoundException;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.BookDetailWithoutUserListDto;
-import com.newbookcatalog.newbookcatalog.model.dto.BookDto;
-import com.newbookcatalog.newbookcatalog.repository.BookRepository;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
-import com.newbookcatalog.newbookcatalog.service.UserService;
+import com.bookcatalog.backend.exceptions.BookNotFoundException;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.BookDetailWithoutUserListDto;
+import com.bookcatalog.backend.model.dto.BookDto;
+import com.bookcatalog.backend.repository.BookRepository;
+import com.bookcatalog.backend.repository.UserRepository;
+import com.bookcatalog.backend.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,8 +30,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
-import com.newbookcatalog.newbookcatalog.service.BookService;
+import com.bookcatalog.backend.model.Book;
+import com.bookcatalog.backend.service.BookService;
 import org.springframework.security.core.userdetails.UserDetails;
 
 public class BookControllerTest {

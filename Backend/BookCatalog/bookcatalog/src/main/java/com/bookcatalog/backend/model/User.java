@@ -1,9 +1,9 @@
-package com.newbookcatalog.newbookcatalog.model;
+package com.bookcatalog.backend.model;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import com.newbookcatalog.newbookcatalog.model.dto.UserDto;
+import com.bookcatalog.backend.model.dto.UserDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;

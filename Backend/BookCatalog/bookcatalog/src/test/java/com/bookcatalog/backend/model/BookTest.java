@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.model;
+package com.bookcatalog.backend.model;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.newbookcatalog.newbookcatalog.helpers.DateHelper;
+import com.bookcatalog.backend.helpers.DateHelper;
 
 import static org.junit.jupiter.api.Assertions.*;
 

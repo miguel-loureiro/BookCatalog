@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.repository;
+package com.bookcatalog.backend.repository;
 
 import java.util.Optional;
 
@@ -6,7 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.newbookcatalog.newbookcatalog.model.User;
+import com.bookcatalog.backend.model.User;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 

@@ -1,8 +1,8 @@
-package com.newbookcatalog.newbookcatalog.model.dto;
+package com.bookcatalog.backend.model.dto;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
+import com.bookcatalog.backend.model.Book;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;

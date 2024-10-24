@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.helpers.validation;
+package com.bookcatalog.backend.helpers.validation;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;

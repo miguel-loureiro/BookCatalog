@@ -1,9 +1,9 @@
-package com.newbookcatalog.newbookcatalog.controller;
+package com.bookcatalog.backend.controller;
 
-import com.newbookcatalog.newbookcatalog.model.Role;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.UserDto;
-import com.newbookcatalog.newbookcatalog.service.UserService;
+import com.bookcatalog.backend.model.Role;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.UserDto;
+import com.bookcatalog.backend.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;

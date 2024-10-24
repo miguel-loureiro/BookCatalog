@@ -1,6 +1,6 @@
-package com.newbookcatalog.newbookcatalog.helpers.validation;
+package com.bookcatalog.backend.helpers.validation;
 
-import com.newbookcatalog.newbookcatalog.model.dto.LoginUserDto;
+import com.bookcatalog.backend.model.dto.LoginUserDto;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 

@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.config;
+package com.bookcatalog.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

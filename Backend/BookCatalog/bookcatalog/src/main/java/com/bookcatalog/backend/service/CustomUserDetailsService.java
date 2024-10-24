@@ -1,14 +1,14 @@
-package com.newbookcatalog.newbookcatalog.service;
+package com.bookcatalog.backend.service;
 
-import com.newbookcatalog.newbookcatalog.model.CustomUserDetails;
-import com.newbookcatalog.newbookcatalog.model.Role;
+import com.bookcatalog.backend.model.CustomUserDetails;
+import com.bookcatalog.backend.model.Role;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.repository.UserRepository;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {

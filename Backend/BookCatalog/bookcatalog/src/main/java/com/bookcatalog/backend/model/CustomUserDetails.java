@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.model;
+package com.bookcatalog.backend.model;
 
 import lombok.Getter;
 import lombok.Setter;

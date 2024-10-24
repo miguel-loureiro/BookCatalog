@@ -1,6 +1,6 @@
-package com.newbookcatalog.newbookcatalog.model.dto;
+package com.bookcatalog.backend.model.dto;
 
-import com.newbookcatalog.newbookcatalog.model.Role;
+import com.bookcatalog.backend.model.Role;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;

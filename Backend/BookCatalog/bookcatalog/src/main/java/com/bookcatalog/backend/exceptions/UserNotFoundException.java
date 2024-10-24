@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.exceptions;
+package com.bookcatalog.backend.exceptions;
 
 public class UserNotFoundException extends RuntimeException {
 

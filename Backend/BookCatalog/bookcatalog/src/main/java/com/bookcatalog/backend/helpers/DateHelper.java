@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.helpers;
+package com.bookcatalog.backend.helpers;
 
 import java.io.IOException;
 import java.text.ParseException;

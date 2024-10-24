@@ -1,11 +1,11 @@
-package com.newbookcatalog.newbookcatalog.repository;
+package com.bookcatalog.backend.repository;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.newbookcatalog.newbookcatalog.model.Book;
+import com.bookcatalog.backend.model.Book;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

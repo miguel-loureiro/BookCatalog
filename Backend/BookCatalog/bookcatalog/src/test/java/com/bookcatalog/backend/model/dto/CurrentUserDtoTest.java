@@ -1,6 +1,6 @@
-package com.newbookcatalog.newbookcatalog.model.dto;
+package com.bookcatalog.backend.model.dto;
 
-import com.newbookcatalog.newbookcatalog.model.Role;
+import com.bookcatalog.backend.model.Role;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

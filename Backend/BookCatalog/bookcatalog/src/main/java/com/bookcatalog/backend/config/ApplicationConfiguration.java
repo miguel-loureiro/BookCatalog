@@ -1,7 +1,7 @@
-package com.newbookcatalog.newbookcatalog.config;
+package com.bookcatalog.backend.config;
 
-import com.newbookcatalog.newbookcatalog.repository.UserRepository;
-import com.newbookcatalog.newbookcatalog.service.CustomUserDetailsService;
+import com.bookcatalog.backend.repository.UserRepository;
+import com.bookcatalog.backend.service.CustomUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

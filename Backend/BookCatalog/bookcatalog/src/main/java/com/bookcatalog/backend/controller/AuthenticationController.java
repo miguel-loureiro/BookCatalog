@@ -1,11 +1,11 @@
-package com.newbookcatalog.newbookcatalog.controller;
+package com.bookcatalog.backend.controller;
 
-import com.newbookcatalog.newbookcatalog.model.CustomUserDetails;
-import com.newbookcatalog.newbookcatalog.model.LoginResponse;
-import com.newbookcatalog.newbookcatalog.model.User;
-import com.newbookcatalog.newbookcatalog.model.dto.LoginUserDto;
-import com.newbookcatalog.newbookcatalog.service.AuthenticationService;
-import com.newbookcatalog.newbookcatalog.service.JwtService;
+import com.bookcatalog.backend.model.CustomUserDetails;
+import com.bookcatalog.backend.model.LoginResponse;
+import com.bookcatalog.backend.model.User;
+import com.bookcatalog.backend.model.dto.LoginUserDto;
+import com.bookcatalog.backend.service.AuthenticationService;
+import com.bookcatalog.backend.service.JwtService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

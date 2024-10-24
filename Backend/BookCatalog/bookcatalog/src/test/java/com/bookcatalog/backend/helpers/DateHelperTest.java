@@ -1,4 +1,4 @@
-package com.newbookcatalog.newbookcatalog.helpers;
+package com.bookcatalog.backend.helpers;
 
 import static org.junit.Assert.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;

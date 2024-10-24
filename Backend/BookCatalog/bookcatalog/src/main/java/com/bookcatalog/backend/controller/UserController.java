@@ -1,16 +1,16 @@
-package com.newbookcatalog.newbookcatalog.controller;
+package com.bookcatalog.backend.controller;
 
-import com.newbookcatalog.newbookcatalog.exceptions.UserNotFoundException;
-import com.newbookcatalog.newbookcatalog.model.dto.RegisterUserDto;
-import com.newbookcatalog.newbookcatalog.model.dto.UserDto;
-import com.newbookcatalog.newbookcatalog.service.AuthenticationService;
-import com.newbookcatalog.newbookcatalog.service.UserService;
+import com.bookcatalog.backend.exceptions.UserNotFoundException;
+import com.bookcatalog.backend.model.dto.RegisterUserDto;
+import com.bookcatalog.backend.model.dto.UserDto;
+import com.bookcatalog.backend.service.AuthenticationService;
+import com.bookcatalog.backend.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
-import com.newbookcatalog.newbookcatalog.model.User;
+import com.bookcatalog.backend.model.User;
 
 import java.io.IOException;
 import java.util.Optional;
